@@ -1,0 +1,17 @@
+{
+  "name": "soem",
+  "version-date": "2023-06-09",
+  "description": "Simple Open Source EtherCAT Master",
+  "homepage": "https://github.com/OpenEtherCATsociety/SOEM",
+  "supports": "!uwp",
+  "dependencies": [
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    },
+    {
+      "name": "winpcap",
+      "platform": "windows"
+    }
+  ]
+}
