@@ -256,6 +256,9 @@ long O3_CPU::fetch_instruction()
       //!! Change all the instructions in the block as inflight
       std::for_each(l1i_req_begin, l1i_req_end, [](auto& x) { x.fetched = INFLIGHT; });
       ++progress;
+      if constexpr (champsim::debug_print) {
+        fmt::print("[IFETCH] {} progress: {}\n", __func__, progress);
+      }
     }
     //!! Find the next starting point of the block
     l1i_req_begin = std::find_if(l1i_req_end, std::end(IFETCH_BUFFER), fetch_ready);

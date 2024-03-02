@@ -190,6 +190,11 @@ bool CACHE::try_hit(const tag_lookup_type& handle_pkt)
 
   if (hit) {
     ++sim_stats.hits[champsim::to_underlying(handle_pkt.type)][handle_pkt.cpu];
+    if constexpr (champsim::debug_print) {
+      fmt::print("[{}] {} instr_id: {} address: {:#x} v_address: {:#x} data: {:#x} set: {} way: {} ({}) type: {} cycle: {} hits: {}\n", NAME, __func__, handle_pkt.instr_id,
+               handle_pkt.address, handle_pkt.v_address, handle_pkt.data, get_set_index(handle_pkt.address), std::distance(set_begin, way), hit ? "HIT" : "MISS",
+               access_type_names.at(champsim::to_underlying(handle_pkt.type)), current_cycle, sim_stats.hits[champsim::to_underlying(handle_pkt.type)][handle_pkt.cpu]);
+    }
 
     // update replacement policy
     const auto way_idx = static_cast<std::size_t>(std::distance(set_begin, way)); // cast protected by earlier assertion
@@ -287,6 +292,11 @@ bool CACHE::handle_miss(const tag_lookup_type& handle_pkt)
   }
 
   ++sim_stats.misses[champsim::to_underlying(handle_pkt.type)][handle_pkt.cpu];
+  if constexpr (champsim::debug_print) {
+    fmt::print("[{}] {} instr_id: {} address: {:#x} v_address: {:#x} type: {} local_prefetch: {} cycle: {} misses: {}\n", NAME, __func__,
+               handle_pkt.instr_id, handle_pkt.address, handle_pkt.v_address,
+               access_type_names.at(champsim::to_underlying(handle_pkt.type)), handle_pkt.prefetch_from_this, current_cycle, sim_stats.misses[champsim::to_underlying(handle_pkt.type)][handle_pkt.cpu]);
+  }
 
   return true;
 }
