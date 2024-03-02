@@ -51,3 +51,6 @@ vcpkg_installed/
 
 **/_build
 **/_doxygen
+
+results/
+traces/
