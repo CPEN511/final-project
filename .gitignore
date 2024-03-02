@@ -54,3 +54,5 @@ vcpkg_installed/
 
 results/
 traces/
+
+.vscode/
