@@ -43,6 +43,7 @@
 
 enum STATUS { INFLIGHT = 1, COMPLETED = 2 };
 
+//!! Cachebus def 
 class CACHE;
 class CacheBus
 {
@@ -147,6 +148,7 @@ public:
   const long IN_QUEUE_SIZE = 2 * FETCH_WIDTH;
   std::deque<ooo_model_instr> input_queue;
 
+  //!! L1I here!!!
   CacheBus L1I_bus, L1D_bus;
   CACHE* l1i;
 

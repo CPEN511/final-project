@@ -200,6 +200,7 @@ bool O3_CPU::do_init_instruction(ooo_model_instr& arch_instr)
 long O3_CPU::check_dib()
 {
   // scan through IFETCH_BUFFER to find instructions that hit in the decoded instruction buffer
+  //!! This checks if the FETCHED line is gtg, last step in the instruction flow
   auto begin = std::find_if(std::begin(IFETCH_BUFFER), std::end(IFETCH_BUFFER), [](const ooo_model_instr& x) { return !x.dib_checked; });
   auto [window_begin, window_end] = champsim::get_span(begin, std::end(IFETCH_BUFFER), FETCH_WIDTH);
   std::for_each(window_begin, window_end, [this](auto& ifetch_entry){ this->do_check_dib(ifetch_entry); });
@@ -225,10 +226,12 @@ void O3_CPU::do_check_dib(ooo_model_instr& instr)
 
 long O3_CPU::fetch_instruction()
 {
+  //!! The implementation of ICache, its private cache so its in ooo_cpu
   long progress{0};
 
   // Fetch a single cache line
   auto fetch_ready = [](const ooo_model_instr& x) {
+    //!!when we havent fetched it and it was never fetched, instruction is fetch ready
     return x.dib_checked == COMPLETED && !x.fetched;
   };
 
@@ -236,26 +239,32 @@ long O3_CPU::fetch_instruction()
   auto no_match_ip = [](const auto& lhs, const auto& rhs) {
     return (lhs.ip >> LOG2_BLOCK_SIZE) != (rhs.ip >> LOG2_BLOCK_SIZE);
   };
-
+  //!! find the start of first instruction block that we need to fetch
   auto l1i_req_begin = std::find_if(std::begin(IFETCH_BUFFER), std::end(IFETCH_BUFFER), fetch_ready);
+  //!! starting from L1I bandwidth, while we still have bandwidth, and ifetch buffer does have need-to-fetch instructions
   for (auto to_read = L1I_BANDWIDTH; to_read > 0 && l1i_req_begin != std::end(IFETCH_BUFFER); --to_read) {
+    //!! find the end of the block we need to read in the ifetch buffer bychecking when their ip >> block size is different
     auto l1i_req_end = std::adjacent_find(l1i_req_begin, std::end(IFETCH_BUFFER), no_match_ip);
+    //!! Adjust the end pointer to the block to the actual position as the reason in the comment below lmao
     if (l1i_req_end != std::end(IFETCH_BUFFER))
       l1i_req_end = std::next(l1i_req_end); // adjacent_find returns the first of the non-equal elements
 
     // Issue to L1I
+    //!! This is where we issue fetch the instruction block to L1I
     auto success = do_fetch_instruction(l1i_req_begin, l1i_req_end);
     if (success) {
+      //!! Change all the instructions in the block as inflight
       std::for_each(l1i_req_begin, l1i_req_end, [](auto& x) { x.fetched = INFLIGHT; });
       ++progress;
     }
-
+    //!! Find the next starting point of the block
     l1i_req_begin = std::find_if(l1i_req_end, std::end(IFETCH_BUFFER), fetch_ready);
   }
 
   return progress;
 }
 
+//!! The function that does l1i fetch
 bool O3_CPU::do_fetch_instruction(std::deque<ooo_model_instr>::iterator begin, std::deque<ooo_model_instr>::iterator end)
 {
   CacheBus::request_type fetch_packet;
@@ -263,12 +272,12 @@ bool O3_CPU::do_fetch_instruction(std::deque<ooo_model_instr>::iterator begin, s
   fetch_packet.instr_id = begin->instr_id;
   fetch_packet.ip = begin->ip;
   fetch_packet.instr_depend_on_me = {begin, end};
-
+  //!! pollute txt file
   if constexpr (champsim::debug_print) {
     fmt::print("[IFETCH] {} instr_id: {} ip: {:#x} dependents: {} event_cycle: {}\n", __func__, begin->instr_id, begin->ip,
                std::size(fetch_packet.instr_depend_on_me), begin->event_cycle);
   }
-
+  //!! Send the thing to the L1i BUS
   return L1I_bus.issue_read(fetch_packet);
 }
 
@@ -574,15 +583,18 @@ long O3_CPU::complete_inflight_instruction()
   return EXEC_WIDTH - complete_bw;
 }
 
+//!! When L1i fetch is completed
 long O3_CPU::handle_memory_return()
 {
   long progress{0};
 
   for (auto l1i_bw = FETCH_WIDTH, to_read = L1I_BANDWIDTH; l1i_bw > 0 && to_read > 0 && !L1I_bus.lower_level->returned.empty(); --to_read) {
     auto& l1i_entry = L1I_bus.lower_level->returned.front();
-
+    //!! while l1i still have bw and the entry still has dependency
     while (l1i_bw > 0 && !l1i_entry.instr_depend_on_me.empty()) {
       ooo_model_instr& fetched = l1i_entry.instr_depend_on_me.front();
+      //!! if the front dependency instruction's block address matched the one we got from L1I and its not fetched 
+      //!! or I think this is just the check to see if the instruction fetched is the one we want
       if ((fetched.ip >> LOG2_BLOCK_SIZE) == (l1i_entry.v_address >> LOG2_BLOCK_SIZE) && fetched.fetched != 0) {
         fetched.fetched = COMPLETED;
         --l1i_bw;
@@ -592,7 +604,7 @@ long O3_CPU::handle_memory_return()
           fmt::print("[IFETCH] {} instr_id: {} fetch completed\n", __func__, fetched.instr_id);
         }
       }
-
+      //!! now we served this one small fetch request, pop it
       l1i_entry.instr_depend_on_me.erase(std::begin(l1i_entry.instr_depend_on_me));
     }
 
@@ -687,14 +699,16 @@ void LSQ_ENTRY::finish(std::deque<ooo_model_instr>::iterator begin, std::deque<o
                rob_entry->num_mem_ops() - rob_entry->completed_mem_ops, event_cycle);
   }
 }
-
+//!! Say hi to the actual "reading" part of the data handeling 
 bool CacheBus::issue_read(request_type data_packet)
 {
+  //!! Set the data packet's meta datas like which cpu is this packet from, virtual address, and access type
   data_packet.address = data_packet.v_address;
   data_packet.is_translated = false;
   data_packet.cpu = cpu;
   data_packet.type = access_type::LOAD;
-
+  //!! Send to the read queue
+  //!! go to channel.cc to see what this does
   return lower_level->add_rq(data_packet);
 }
 

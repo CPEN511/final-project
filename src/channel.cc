@@ -111,12 +111,14 @@ void champsim::channel::check_collision()
   }
 }
 
+//!! Actual queue function
 template <typename R>
 bool champsim::channel::do_add_queue(R& queue, std::size_t queue_size, const typename R::value_type& packet)
 {
   assert(packet.address != 0);
 
   // check occupancy
+  //!! if our rq is larger than defined queue size for that cache
   if (std::size(queue) >= queue_size) {
     if constexpr (champsim::debug_print) {
       fmt::print("[channel] {} instr_id: {} address: {:#x} v_address: {:#x} type: {} FULL\n", __func__, packet.instr_id, packet.address, packet.v_address,
@@ -137,7 +139,7 @@ bool champsim::channel::do_add_queue(R& queue, std::size_t queue_size, const typ
 
   return true;
 }
-
+//!! just a front for actual add queue thingy for packets
 bool champsim::channel::add_rq(const request_type& packet)
 {
   sim_stats.RQ_ACCESS++;
