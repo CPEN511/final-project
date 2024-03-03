@@ -5,7 +5,7 @@ if [ ! -f "$config_file" ]; then
   echo "Error: Configuration file champsim_config.json not found."
   exit 1
 fi
-
+./config.sh $config_file
 make
 trace_files=($(ls traces/))
 
