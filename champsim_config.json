@@ -54,6 +54,22 @@
         "prefetcher": "no_instr"
     },
 
+    "ifilter": {
+        "sets": 1,
+        "ways": 16,
+        "rq_size": 32,
+        "wq_size": 32,
+        "pq_size": 32,
+        "mshr_size": 8,
+        "latency": 4,
+        "max_tag_check": 2,
+        "max_fill": 2,
+        "prefetch_as_load": false,
+        "virtual_prefetch": true,
+        "prefetch_activate": "LOAD,PREFETCH",
+        "prefetcher": "no_instr"
+    },
+
     "L1D": {
         "sets": 64,
         "ways": 12,
