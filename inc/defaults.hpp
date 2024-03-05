@@ -75,6 +75,23 @@ const auto default_l1i = CACHE::Builder{}
                              .prefetcher<CACHE::pprefetcherDno_instr>()
                              .replacement<CACHE::rreplacementDlru>();
 
+const auto default_ifl = CACHE::Builder{}
+                             .sets(1)
+                             .ways(16)
+                             .pq_size(32)
+                             .mshr_size(8)
+                             .hit_latency(3)
+                             .fill_latency(1)
+                             .tag_bandwidth(2)
+                             .fill_bandwidth(2)
+                             .offset_bits(LOG2_BLOCK_SIZE)
+                             .reset_prefetch_as_load()
+                             .set_virtual_prefetch()
+                             .set_wq_checks_full_addr()
+                             .prefetch_activate(access_type::LOAD, access_type::PREFETCH)
+                             .prefetcher<CACHE::pprefetcherDno_instr>()
+                             .replacement<CACHE::rreplacementDlru>();
+
 const auto default_l1d = CACHE::Builder{}
                              .sets(64)
                              .ways(12)
