@@ -141,6 +141,7 @@ public:
   const long int RETIRE_WIDTH;
   const unsigned BRANCH_MISPREDICT_PENALTY, DISPATCH_LATENCY, DECODE_LATENCY, SCHEDULING_LATENCY, EXEC_LATENCY;
   const long int L1I_BANDWIDTH, L1D_BANDWIDTH;
+  const long int IFL_BANDWIDTH;
 
   // branch
   uint64_t fetch_resume_cycle = 0;
@@ -151,6 +152,9 @@ public:
   //!! L1I here!!!
   CacheBus L1I_bus, L1D_bus;
   CACHE* l1i;
+
+  //!! ifilter here!!!
+  CACHE* ifl;
 
   void initialize() override final;
   long operate() override final;
@@ -270,8 +274,10 @@ public:
     unsigned m_execute_latency{};
 
     CACHE* m_l1i{};
+    CACHE* m_ifl{};   // i-filter cache
     long int m_l1i_bw{};
     long int m_l1d_bw{};
+    long int m_ifl_bw{};
     champsim::channel* m_fetch_queues{};
     champsim::channel* m_data_queues{};
 
@@ -286,7 +292,7 @@ public:
           m_schedule_width(other.m_schedule_width), m_execute_width(other.m_execute_width), m_lq_width(other.m_lq_width), m_sq_width(other.m_sq_width),
           m_retire_width(other.m_retire_width), m_mispredict_penalty(other.m_mispredict_penalty), m_decode_latency(other.m_decode_latency),
           m_dispatch_latency(other.m_dispatch_latency), m_schedule_latency(other.m_schedule_latency), m_execute_latency(other.m_execute_latency),
-          m_l1i(other.m_l1i), m_l1i_bw(other.m_l1i_bw), m_l1d_bw(other.m_l1d_bw), m_fetch_queues(other.m_fetch_queues), m_data_queues(other.m_data_queues)
+          m_l1i(other.m_l1i), m_ifl(other.m_ifl), m_l1i_bw(other.m_l1i_bw), m_l1d_bw(other.m_l1d_bw), m_ifl_bw(other.m_ifl_bw), m_fetch_queues(other.m_fetch_queues), m_data_queues(other.m_data_queues)
     {
     }
 
@@ -418,6 +424,11 @@ public:
       m_l1i = l1i_;
       return *this;
     }
+    self_type& ifl(CACHE* ifl_)
+    {
+      m_ifl = ifl_;
+      return *this;
+    }
     self_type& l1i_bandwidth(long int l1i_bw_)
     {
       m_l1i_bw = l1i_bw_;
@@ -426,6 +437,11 @@ public:
     self_type& l1d_bandwidth(long int l1d_bw_)
     {
       m_l1d_bw = l1d_bw_;
+      return *this;
+    }
+    self_type& ifl_bandwidth(long int ifl_bw_)
+    {
+      m_ifl_bw = ifl_bw_;
       return *this;
     }
     self_type& fetch_queues(champsim::channel* fetch_queues_)
@@ -458,8 +474,8 @@ public:
         ROB_SIZE(b.m_rob_size), SQ_SIZE(b.m_sq_size), FETCH_WIDTH(b.m_fetch_width), DECODE_WIDTH(b.m_decode_width), DISPATCH_WIDTH(b.m_dispatch_width),
         SCHEDULER_SIZE(b.m_schedule_width), EXEC_WIDTH(b.m_execute_width), LQ_WIDTH(b.m_lq_width), SQ_WIDTH(b.m_sq_width), RETIRE_WIDTH(b.m_retire_width),
         BRANCH_MISPREDICT_PENALTY(b.m_mispredict_penalty), DISPATCH_LATENCY(b.m_dispatch_latency), DECODE_LATENCY(b.m_decode_latency),
-        SCHEDULING_LATENCY(b.m_schedule_latency), EXEC_LATENCY(b.m_execute_latency), L1I_BANDWIDTH(b.m_l1i_bw), L1D_BANDWIDTH(b.m_l1d_bw),
-        L1I_bus(b.m_cpu, b.m_fetch_queues), L1D_bus(b.m_cpu, b.m_data_queues), l1i(b.m_l1i), module_pimpl(std::make_unique<module_model<B_FLAG, T_FLAG>>(this))
+        SCHEDULING_LATENCY(b.m_schedule_latency), EXEC_LATENCY(b.m_execute_latency), L1I_BANDWIDTH(b.m_l1i_bw), L1D_BANDWIDTH(b.m_l1d_bw), IFL_BANDWIDTH(b.m_ifl_bw),
+        L1I_bus(b.m_cpu, b.m_fetch_queues), L1D_bus(b.m_cpu, b.m_data_queues), l1i(b.m_l1i), ifl(b.m_ifl), module_pimpl(std::make_unique<module_model<B_FLAG, T_FLAG>>(this))
   {
   }
 };

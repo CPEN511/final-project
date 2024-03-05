@@ -54,7 +54,7 @@
         "prefetcher": "no_instr"
     },
 
-    "ifilter": {
+    "IFL": {
         "sets": 1,
         "ways": 16,
         "rq_size": 32,
