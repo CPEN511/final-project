@@ -87,7 +87,8 @@ def get_instantiation_lines(cores, caches, ptws, pmem, vmem):
         ((elem['lower_level'], elem['name']) for elem in ptws),
         ((elem['lower_level'], elem['name']) for elem in caches),
         ((elem['lower_translate'], elem['name']) for elem in caches if 'lower_translate' in elem),
-        *(((elem['L1I'], elem['name']), (elem['L1D'], elem['name'])) for elem in cores)
+        *(((elem['L1I'], elem['name']), (elem['L1D'], elem['name'])) for elem in cores),
+        *(((elem['IFL'], elem['name']), (elem['L1D'], elem['name'])) for elem in cores)
     ))
 
     upper_levels = {k: {'uppers': tuple(x[1] for x in v)} for k,v in itertools.groupby(sorted(upper_level_pairs, key=operator.itemgetter(0)), key=operator.itemgetter(0))}
@@ -115,6 +116,9 @@ def get_instantiation_lines(cores, caches, ptws, pmem, vmem):
 
     for ll,v in upper_levels.items():
         for ul in v['uppers']:
+            print("ul = ", ul, " ll = ", ll)
+            print(queue_fmtstr.format(name='{}_to_{}_queues'.format(ul, ll), **v))
+            print("BREAK")
             yield queue_fmtstr.format(name='{}_to_{}_queues'.format(ul, ll), **v)
     yield ''
 
@@ -192,6 +196,8 @@ def get_instantiation_lines(cores, caches, ptws, pmem, vmem):
         yield '.frequency({frequency})'.format(**cpu)
         yield '.l1i(&{L1I})'.format(**cpu)
         yield '.l1i_bandwidth({L1I}.MAX_TAG)'.format(**cpu)
+        yield '.ifl(&{IFL})'.format(**cpu)
+        yield '.ifl_bandwidth({IFL}.MAX_TAG)'.format(**cpu)
         yield '.l1d_bandwidth({L1D}.MAX_TAG)'.format(**cpu)
 
         yield from (v.format(**cpu) for k,v in core_builder_parts.items() if k in cpu)
@@ -203,6 +209,7 @@ def get_instantiation_lines(cores, caches, ptws, pmem, vmem):
             yield '.btb<{}>()'.format(' | '.join('O3_CPU::t{}'.format(k['name']) for k in cpu['_btb_data']))
 
         yield '.fetch_queues({})'.format('&{}_to_{}_queues'.format(cpu['name'], cpu['L1I']))
+        yield '.fetch_queues({})'.format('&{}_to_{}_queues'.format(cpu['name'], cpu['IFL']))
         yield '.data_queues({})'.format('&{}_to_{}_queues'.format(cpu['name'], cpu['L1D']))
 
         yield '};'

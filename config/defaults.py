@@ -63,6 +63,20 @@ def l1i_path(cores, caches):
     p = list(default_path(cores, caches, l1i_factors, l1i_members, 'L1I'))
     yield from p
 
+def ifl_path(cores, caches):
+    ifl_factors = (
+        { 'set_factor': 64, 'mshr_factor': 32, 'bandwidth_factor': 1 },
+        { 'set_factor': 512, 'mshr_factor': 32, 'bandwidth_factor': 0.5 },
+        { 'set_factor': 2048, 'mshr_factor': 64, 'bandwidth_factor': 1 }
+    )
+    ifl_members = (
+        { '_is_instruction_cache': True, '_defaults': 'champsim::defaults::default_ifl' },
+        { '_defaults': 'champsim::defaults::default_l2c' },
+        { '_defaults': 'champsim::defaults::default_llc' }
+    )
+    p = list(default_path(cores, caches, ifl_factors, ifl_members, 'IFL'))
+    yield from p
+
 def l1d_path(cores, caches):
     l1d_factors = (
         { 'set_factor': 64, 'mshr_factor': 32, 'bandwidth_factor': 1 },
@@ -100,17 +114,21 @@ def dtlb_path(cores, caches):
 
 def list_defaults(cores, caches):
     l1i = list(l1i_path(cores, caches))
-    #print(l1i)
+    ifl = list(ifl_path(cores, caches))
+    # print(l1i)
+    # print(ifl)
     yield from l1i
+    yield from ifl
     yield from l1d_path(cores, caches)
     yield from itlb_path(cores, caches)
     yield from dtlb_path(cores, caches)
 
     for cpu in cores:
         icache_path = util.iter_system(caches, cpu['L1I'])
+        iflcache_path = util.iter_system(caches, cpu['IFL'])
         dcache_path = util.iter_system(caches, cpu['L1D'])
         itransl_path = util.iter_system(caches, cpu['ITLB'])
         dtransl_path = util.iter_system(caches, cpu['DTLB'])
-
         yield from ({'name': c['name'], 'lower_translate': tlb['name']} for c,tlb in zip(icache_path, itransl_path))
+        yield from ({'name': c['name'], 'lower_translate': tlb['name']} for c,tlb in zip(iflcache_path, itransl_path))
         yield from ({'name': c['name'], 'lower_translate': tlb['name']} for c,tlb in zip(dcache_path, dtransl_path))

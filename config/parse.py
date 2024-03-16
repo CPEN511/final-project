@@ -72,7 +72,7 @@ def normalize_config(config_file):
     core_keys_to_copy = ('frequency', 'ifetch_buffer_size', 'decode_buffer_size', 'dispatch_buffer_size', 'rob_size', 'lq_size', 'sq_size', 'fetch_width', 'decode_width', 'dispatch_width', 'execute_width', 'lq_width', 'sq_width', 'retire_width', 'mispredict_penalty', 'scheduler_size', 'decode_latency', 'dispatch_latency', 'schedule_latency', 'execute_latency', 'branch_predictor', 'btb', 'DIB')
     cores = [util.chain(cpu, util.subdict(config_file, core_keys_to_copy), {'name': 'cpu'+str(i), '_index': i}) for i,cpu in enumerate(cores)]
 
-    pinned_cache_names = ('L1I', 'L1D', 'ITLB', 'DTLB', 'L2C', 'STLB')
+    pinned_cache_names = ('L1I', 'IFL', 'L1D', 'ITLB', 'DTLB', 'L2C', 'STLB')
     caches = util.combine_named(
             config_file.get('caches', []),
 
@@ -86,6 +86,7 @@ def normalize_config(config_file):
 
             # Apply defaults named after the cores
             (defaults.core_defaults(cpu, 'L1I', ll_name='L2C') for cpu in cores),
+            (defaults.core_defaults(cpu, 'IFL', ll_name='L2C') for cpu in cores),
             (defaults.core_defaults(cpu, 'L1D', ll_name='L2C') for cpu in cores),
             (defaults.core_defaults(cpu, 'ITLB', ll_name='STLB') for cpu in cores),
             (defaults.core_defaults(cpu, 'DTLB', ll_name='STLB') for cpu in cores),
@@ -123,7 +124,7 @@ def parse_normalized(cores, caches, ptws, pmem, vmem, merged_configs, branch_con
     cores = [util.chain(cpu, {'DIB': dict()}, default_core) for cpu in cores]
 
     # Frequencies are the maximum of the upper levels, unless specified
-    for cpu,name in itertools.product(cores, ('L1I', 'L1D', 'ITLB', 'DTLB')):
+    for cpu,name in itertools.product(cores, ('L1I', 'IFL', 'L1D', 'ITLB', 'DTLB')):
         caches = util.combine_named(caches.values(),
             itertools.islice(itertools.accumulate(
                 itertools.chain((cpu,), util.iter_system(caches, cpu[name])),
@@ -158,7 +159,7 @@ def parse_normalized(cores, caches, ptws, pmem, vmem, merged_configs, branch_con
             ptw[new] = ptw[old]
 
     # Remove caches that are inaccessible
-    caches = filter_inaccessible(caches, [cpu[name] for cpu,name in itertools.product(cores, ('ITLB', 'DTLB', 'L1I', 'L1D'))])
+    caches = filter_inaccessible(caches, [cpu[name] for cpu,name in itertools.product(cores, ('ITLB', 'DTLB', 'L1I', 'IFL', 'L1D'))])
 
     pmem['io_freq'] = pmem['frequency'] # Save value
     scale_frequencies(itertools.chain(cores, caches.values(), ptws.values(), (pmem,)))
@@ -179,11 +180,16 @@ def parse_normalized(cores, caches, ptws, pmem, vmem, merged_configs, branch_con
             c['prefetch_activate'] = split_string_or_list(c['prefetch_activate'])
 
     tlb_path = itertools.chain.from_iterable(util.iter_system(caches, cpu[name]) for cpu,name in itertools.product(cores, ('ITLB', 'DTLB')))
-    l1d_path = itertools.chain.from_iterable(util.iter_system(caches, cpu[name]) for cpu,name in itertools.product(cores, ('L1I', 'L1D')))
+    l1d_instr_path = itertools.chain.from_iterable(util.iter_system(caches, cpu[name]) for cpu,name in itertools.product(cores, ('L1I', 'L1D')))
+    l1d_ifl_path = itertools.chain.from_iterable(util.iter_system(caches, cpu[name]) for cpu,name in itertools.product(cores, ('IFL', 'L1D')))
+    # for element in l1d_path:
+    #     print(element)
+    #     print("BREAK")
     caches = util.combine_named(
             # TLBs use page offsets, Caches use block offsets
             ({'name': c['name'], '_offset_bits': 'champsim::lg2(' + str(config_file['page_size']) + ')'} for c in tlb_path),
-            ({'name': c['name'], '_offset_bits': 'champsim::lg2(' + str(config_file['block_size']) + ')'} for c in l1d_path),
+            ({'name': c['name'], '_offset_bits': 'champsim::lg2(' + str(config_file['block_size']) + ')'} for c in l1d_instr_path),
+            ({'name': c['name'], '_offset_bits': 'champsim::lg2(' + str(config_file['block_size']) + ')'} for c in l1d_ifl_path),
 
             caches.values(),
 
@@ -192,6 +198,7 @@ def parse_normalized(cores, caches, ptws, pmem, vmem, merged_configs, branch_con
 
             # The end of the data path is the physical memory
             ({'name': collections.deque(util.iter_system(caches, cpu['L1I']), maxlen=1)[0]['name'], 'lower_level': 'DRAM'} for cpu in cores),
+            ({'name': collections.deque(util.iter_system(caches, cpu['IFL']), maxlen=1)[0]['name'], 'lower_level': 'DRAM'} for cpu in cores),
             ({'name': collections.deque(util.iter_system(caches, cpu['L1D']), maxlen=1)[0]['name'], 'lower_level': 'DRAM'} for cpu in cores),
 
             # Get module path names and unique module names
