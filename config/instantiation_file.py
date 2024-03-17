@@ -82,6 +82,8 @@ def vector_string(iterable):
         return hoisted[0]
     return '{'+', '.join(hoisted)+'}'
 
+generated_queues = {}
+
 def get_instantiation_lines(cores, caches, ptws, pmem, vmem):
     upper_level_pairs = tuple(itertools.chain(
         ((elem['lower_level'], elem['name']) for elem in ptws),
@@ -116,10 +118,11 @@ def get_instantiation_lines(cores, caches, ptws, pmem, vmem):
 
     for ll,v in upper_levels.items():
         for ul in v['uppers']:
-            print("ul = ", ul, " ll = ", ll)
-            print(queue_fmtstr.format(name='{}_to_{}_queues'.format(ul, ll), **v))
-            print("BREAK")
-            yield queue_fmtstr.format(name='{}_to_{}_queues'.format(ul, ll), **v)
+            queue_name = '{}_to_{}_queues'.format(ul, ll)
+            if queue_name not in generated_queues:  # Check if generated
+                print(queue_fmtstr.format(name=queue_name, **v))
+                generated_queues[queue_name] = True  # Mark as generated
+                yield queue_fmtstr.format(name=queue_name, **v)
     yield ''
 
     yield pmem_fmtstr.format(
