@@ -15,6 +15,7 @@
             "lq_size": 128,
             "sq_size": 72,
             "fetch_width": 6,
+            "filter_width": 6,
             "decode_width": 6,
             "dispatch_width": 6,
             "execute_width": 4,

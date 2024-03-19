@@ -124,11 +124,12 @@ def list_defaults(cores, caches):
     yield from dtlb_path(cores, caches)
 
     for cpu in cores:
-        icache_path = util.iter_system(caches, cpu['L1I'])
         iflcache_path = util.iter_system(caches, cpu['IFL'])
+        icache_path = util.iter_system(caches, cpu['L1I'])
         dcache_path = util.iter_system(caches, cpu['L1D'])
         itransl_path = util.iter_system(caches, cpu['ITLB'])
+        iftransl_path = util.iter_system(caches, cpu['ITLB'])
         dtransl_path = util.iter_system(caches, cpu['DTLB'])
         yield from ({'name': c['name'], 'lower_translate': tlb['name']} for c,tlb in zip(icache_path, itransl_path))
-        yield from ({'name': c['name'], 'lower_translate': tlb['name']} for c,tlb in zip(iflcache_path, itransl_path))
+        yield from ({'name': c['name'], 'lower_translate': tlb['name']} for c,tlb in zip(iflcache_path, iftransl_path))
         yield from ({'name': c['name'], 'lower_translate': tlb['name']} for c,tlb in zip(dcache_path, dtransl_path))

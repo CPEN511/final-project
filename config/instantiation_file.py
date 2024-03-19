@@ -25,12 +25,14 @@ queue_fmtstr = 'champsim::channel {name}{{{rq_size}, {pq_size}, {wq_size}, {_off
 
 core_builder_parts = {
     'ifetch_buffer_size': '.ifetch_buffer_size({ifetch_buffer_size})',
+    'ifilter_buffer_size': '.ifilter_buffer_size({ifilter_buffer_size})',
     'decode_buffer_size': '.decode_buffer_size({dispatch_buffer_size})',
     'dispatch_buffer_size': '.dispatch_buffer_size({decode_buffer_size})',
     'rob_size': '.rob_size({rob_size})',
     'lq_size': '.lq_size({lq_size})',
     'sq_size': '.sq_size({sq_size})',
     'fetch_width': '.fetch_width({fetch_width})',
+    'filter_width': '.filter_width({filter_width})',
     'decode_width': '.decode_width({decode_width})',
     'dispatch_width': '.dispatch_width({dispatch_width})',
     'schedule_size': '.schedule_width({scheduler_size})',
@@ -212,7 +214,7 @@ def get_instantiation_lines(cores, caches, ptws, pmem, vmem):
             yield '.btb<{}>()'.format(' | '.join('O3_CPU::t{}'.format(k['name']) for k in cpu['_btb_data']))
 
         yield '.fetch_queues({})'.format('&{}_to_{}_queues'.format(cpu['name'], cpu['L1I']))
-        # yield '.fetch_queues({})'.format('&{}_to_{}_queues'.format(cpu['name'], cpu['IFL']))
+        yield '.filter_queues({})'.format('&{}_to_{}_queues'.format(cpu['name'], cpu['IFL']))
         yield '.data_queues({})'.format('&{}_to_{}_queues'.format(cpu['name'], cpu['L1D']))
 
         yield '};'

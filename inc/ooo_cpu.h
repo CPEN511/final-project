@@ -125,6 +125,7 @@ public:
 
   // reorder buffer, load/store queue, register file
   std::deque<ooo_model_instr> IFETCH_BUFFER;
+  std::deque<ooo_model_instr> IFILTER_BUFFER;
   std::deque<ooo_model_instr> DISPATCH_BUFFER;
   std::deque<ooo_model_instr> DECODE_BUFFER;
   std::deque<ooo_model_instr> ROB;
@@ -135,8 +136,8 @@ public:
   std::array<std::vector<std::reference_wrapper<ooo_model_instr>>, std::numeric_limits<uint8_t>::max() + 1> reg_producers;
 
   // Constants
-  const std::size_t IFETCH_BUFFER_SIZE, DISPATCH_BUFFER_SIZE, DECODE_BUFFER_SIZE, ROB_SIZE, SQ_SIZE;
-  const long int FETCH_WIDTH, DECODE_WIDTH, DISPATCH_WIDTH, SCHEDULER_SIZE, EXEC_WIDTH;
+  const std::size_t IFETCH_BUFFER_SIZE, DISPATCH_BUFFER_SIZE, DECODE_BUFFER_SIZE, IFILTER_BUFFER_SIZE, ROB_SIZE, SQ_SIZE;
+  const long int FETCH_WIDTH, DECODE_WIDTH, DISPATCH_WIDTH, SCHEDULER_SIZE, EXEC_WIDTH, FILTER_WIDTH;
   const long int LQ_WIDTH, SQ_WIDTH;
   const long int RETIRE_WIDTH;
   const unsigned BRANCH_MISPREDICT_PENALTY, DISPATCH_LATENCY, DECODE_LATENCY, SCHEDULING_LATENCY, EXEC_LATENCY;
@@ -255,12 +256,14 @@ public:
     std::size_t m_dib_way{};
     std::size_t m_dib_window{};
     std::size_t m_ifetch_buffer_size{};
+    std::size_t m_ifilter_buffer_size{};
     std::size_t m_decode_buffer_size{};
     std::size_t m_dispatch_buffer_size{};
     std::size_t m_rob_size{};
     std::size_t m_lq_size{};
     std::size_t m_sq_size{};
     unsigned m_fetch_width{};
+    unsigned m_filter_width{};
     unsigned m_decode_width{};
     unsigned m_dispatch_width{};
     unsigned m_schedule_width{};
@@ -281,19 +284,21 @@ public:
     long int m_ifl_bw{};
     champsim::channel* m_fetch_queues{};
     champsim::channel* m_data_queues{};
+    champsim::channel* m_filter_queues{};
 
     friend class O3_CPU;
 
     template <unsigned long long OTHER_B, unsigned long long OTHER_T>
     Builder(builder_conversion_tag, const Builder<OTHER_B, OTHER_T>& other)
         : m_cpu(other.m_cpu), m_freq_scale(other.m_freq_scale), m_dib_set(other.m_dib_set), m_dib_way(other.m_dib_way), m_dib_window(other.m_dib_window),
-          m_ifetch_buffer_size(other.m_ifetch_buffer_size), m_decode_buffer_size(other.m_decode_buffer_size),
+          m_ifetch_buffer_size(other.m_ifetch_buffer_size), m_ifilter_buffer_size(other.m_ifilter_buffer_size), m_decode_buffer_size(other.m_decode_buffer_size),
           m_dispatch_buffer_size(other.m_dispatch_buffer_size), m_rob_size(other.m_rob_size), m_lq_size(other.m_lq_size), m_sq_size(other.m_sq_size),
-          m_fetch_width(other.m_fetch_width), m_decode_width(other.m_decode_width), m_dispatch_width(other.m_dispatch_width),
+          m_fetch_width(other.m_fetch_width), m_filter_width(other.m_filter_width), m_decode_width(other.m_decode_width), m_dispatch_width(other.m_dispatch_width),
           m_schedule_width(other.m_schedule_width), m_execute_width(other.m_execute_width), m_lq_width(other.m_lq_width), m_sq_width(other.m_sq_width),
           m_retire_width(other.m_retire_width), m_mispredict_penalty(other.m_mispredict_penalty), m_decode_latency(other.m_decode_latency),
           m_dispatch_latency(other.m_dispatch_latency), m_schedule_latency(other.m_schedule_latency), m_execute_latency(other.m_execute_latency),
-          m_l1i(other.m_l1i), m_ifl(other.m_ifl), m_l1i_bw(other.m_l1i_bw), m_l1d_bw(other.m_l1d_bw), m_ifl_bw(other.m_ifl_bw), m_fetch_queues(other.m_fetch_queues), m_data_queues(other.m_data_queues)
+          m_l1i(other.m_l1i), m_ifl(other.m_ifl), m_l1i_bw(other.m_l1i_bw), m_l1d_bw(other.m_l1d_bw), m_ifl_bw(other.m_ifl_bw), m_fetch_queues(other.m_fetch_queues), m_data_queues(other.m_data_queues), 
+          m_filter_queues(other.m_filter_queues)
     {
     }
 
@@ -330,6 +335,11 @@ public:
       m_ifetch_buffer_size = ifetch_buffer_size_;
       return *this;
     }
+    self_type& ifilter_buffer_size(std::size_t ifilter_buffer_size_)
+    {
+      m_ifilter_buffer_size = ifilter_buffer_size_;
+      return *this;
+    }
     self_type& decode_buffer_size(std::size_t decode_buffer_size_)
     {
       m_decode_buffer_size = decode_buffer_size_;
@@ -358,6 +368,11 @@ public:
     self_type& fetch_width(unsigned fetch_width_)
     {
       m_fetch_width = fetch_width_;
+      return *this;
+    }
+    self_type& filter_width(unsigned filter_width_)
+    {
+      m_filter_width = filter_width_;
       return *this;
     }
     self_type& decode_width(unsigned decode_width_)
@@ -450,6 +465,11 @@ public:
       m_fetch_queues = fetch_queues_;
       return *this;
     }
+    self_type& filter_queues(champsim::channel* filter_queues_)
+    {
+      m_filter_queues = filter_queues_;
+      return *this;
+    }
     self_type& data_queues(champsim::channel* data_queues_)
     {
       m_data_queues = data_queues_;
@@ -472,11 +492,11 @@ public:
   explicit O3_CPU(Builder<B_FLAG, T_FLAG> b)
       : champsim::operable(b.m_freq_scale), cpu(b.m_cpu), DIB(b.m_dib_set, b.m_dib_way, {champsim::lg2(b.m_dib_window)}, {champsim::lg2(b.m_dib_window)}),
         LQ(b.m_lq_size), IFETCH_BUFFER_SIZE(b.m_ifetch_buffer_size), DISPATCH_BUFFER_SIZE(b.m_dispatch_buffer_size), DECODE_BUFFER_SIZE(b.m_decode_buffer_size),
-        ROB_SIZE(b.m_rob_size), SQ_SIZE(b.m_sq_size), FETCH_WIDTH(b.m_fetch_width), DECODE_WIDTH(b.m_decode_width), DISPATCH_WIDTH(b.m_dispatch_width),
+        IFILTER_BUFFER_SIZE(b.m_ifilter_buffer_size), ROB_SIZE(b.m_rob_size), SQ_SIZE(b.m_sq_size), FETCH_WIDTH(b.m_fetch_width), FILTER_WIDTH(b.m_filter_width), DECODE_WIDTH(b.m_decode_width), DISPATCH_WIDTH(b.m_dispatch_width),
         SCHEDULER_SIZE(b.m_schedule_width), EXEC_WIDTH(b.m_execute_width), LQ_WIDTH(b.m_lq_width), SQ_WIDTH(b.m_sq_width), RETIRE_WIDTH(b.m_retire_width),
         BRANCH_MISPREDICT_PENALTY(b.m_mispredict_penalty), DISPATCH_LATENCY(b.m_dispatch_latency), DECODE_LATENCY(b.m_decode_latency),
         SCHEDULING_LATENCY(b.m_schedule_latency), EXEC_LATENCY(b.m_execute_latency), L1I_BANDWIDTH(b.m_l1i_bw), L1D_BANDWIDTH(b.m_l1d_bw), IFL_BANDWIDTH(b.m_ifl_bw),
-        L1I_bus(b.m_cpu, b.m_fetch_queues), L1D_bus(b.m_cpu, b.m_data_queues), l1i(b.m_l1i), ifl(b.m_ifl), IFL_bus(b.m_cpu, b.m_fetch_queues), module_pimpl(std::make_unique<module_model<B_FLAG, T_FLAG>>(this))
+        L1I_bus(b.m_cpu, b.m_fetch_queues), L1D_bus(b.m_cpu, b.m_data_queues), l1i(b.m_l1i), ifl(b.m_ifl), IFL_bus(b.m_cpu, b.m_filter_queues), module_pimpl(std::make_unique<module_model<B_FLAG, T_FLAG>>(this))
   {
   }
 };
