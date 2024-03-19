@@ -212,7 +212,7 @@ def get_instantiation_lines(cores, caches, ptws, pmem, vmem):
             yield '.btb<{}>()'.format(' | '.join('O3_CPU::t{}'.format(k['name']) for k in cpu['_btb_data']))
 
         yield '.fetch_queues({})'.format('&{}_to_{}_queues'.format(cpu['name'], cpu['L1I']))
-        yield '.fetch_queues({})'.format('&{}_to_{}_queues'.format(cpu['name'], cpu['IFL']))
+        # yield '.fetch_queues({})'.format('&{}_to_{}_queues'.format(cpu['name'], cpu['IFL']))
         yield '.data_queues({})'.format('&{}_to_{}_queues'.format(cpu['name'], cpu['L1D']))
 
         yield '};'
