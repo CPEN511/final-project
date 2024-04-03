@@ -106,7 +106,7 @@ void O3_CPU::end_phase(unsigned finished_cpu)
 
 void O3_CPU::initialize_instruction()
 {
-  auto instrs_to_read_this_cycle = std::min(FILTER_WIDTH, static_cast<long>(IFILTER_BUFFER_SIZE - std::size(IFILTER_BUFFER)));
+  auto instrs_to_read_this_cycle = std::min(FILTER_WIDTH, static_cast<long>(IFETCH_BUFFER_SIZE - std::size(IFETCH_BUFFER)));
 
   while (current_cycle >= fetch_resume_cycle && instrs_to_read_this_cycle > 0 && !std::empty(input_queue)) {
     instrs_to_read_this_cycle--;
@@ -116,10 +116,10 @@ void O3_CPU::initialize_instruction()
       instrs_to_read_this_cycle = 0;
 
     // Add to IFETCH_BUFFER
-    IFILTER_BUFFER.push_back(input_queue.front());
+    IFETCH_BUFFER.push_back(input_queue.front());
     input_queue.pop_front();
 
-    IFILTER_BUFFER.back().event_cycle = current_cycle;
+    IFETCH_BUFFER.back().event_cycle = current_cycle;
   }
 }
 
@@ -201,8 +201,8 @@ long O3_CPU::check_dib()
 {
   // scan through IFETCH_BUFFER to find instructions that hit in the decoded instruction buffer
   //!! This checks if the FETCHED line is gtg, last step in the instruction flow
-  auto begin = std::find_if(std::begin(IFILTER_BUFFER), std::end(IFILTER_BUFFER), [](const ooo_model_instr& x) { return !x.dib_checked; });
-  auto [window_begin, window_end] = champsim::get_span(begin, std::end(IFILTER_BUFFER), FILTER_WIDTH);
+  auto begin = std::find_if(std::begin(IFETCH_BUFFER), std::end(IFETCH_BUFFER), [](const ooo_model_instr& x) { return !x.dib_checked; });
+  auto [window_begin, window_end] = champsim::get_span(begin, std::end(IFETCH_BUFFER), FILTER_WIDTH);
   std::for_each(window_begin, window_end, [this](auto& ifetch_entry){ this->do_check_dib(ifetch_entry); });
   return std::distance(window_begin, window_end);
 }
@@ -236,17 +236,18 @@ long O3_CPU::fetch_instruction()
   };
 
   // Find the chunk of instructions in the block
+  //!! Checks if two instructions belong to the same cache block
   auto no_match_ip = [](const auto& lhs, const auto& rhs) {
     return (lhs.ip >> LOG2_BLOCK_SIZE) != (rhs.ip >> LOG2_BLOCK_SIZE);
   };
   //!! find the start of first instruction block that we need to fetch
-  auto ifl_req_begin = std::find_if(std::begin(IFILTER_BUFFER), std::end(IFILTER_BUFFER), fetch_ready);
+  auto ifl_req_begin = std::find_if(std::begin(IFETCH_BUFFER), std::end(IFETCH_BUFFER), fetch_ready);
   //!! starting from L1I bandwidth, while we still have bandwidth, and ifetch buffer does have need-to-fetch instructions
-  for (auto to_read = IFL_BANDWIDTH; to_read > 0 && ifl_req_begin != std::end(IFILTER_BUFFER); --to_read) {
+  for (auto to_read = IFL_BANDWIDTH; to_read > 0 && ifl_req_begin != std::end(IFETCH_BUFFER); --to_read) {
     //!! find the end of the block we need to read in the ifetch buffer bychecking when their ip >> block size is different
-    auto ifl_req_end = std::adjacent_find(ifl_req_begin, std::end(IFILTER_BUFFER), no_match_ip);
+    auto ifl_req_end = std::adjacent_find(ifl_req_begin, std::end(IFETCH_BUFFER), no_match_ip);
     //!! Adjust the end pointer to the block to the actual position as the reason in the comment below lmao
-    if (ifl_req_end != std::end(IFILTER_BUFFER))
+    if (ifl_req_end != std::end(IFETCH_BUFFER))
       ifl_req_end = std::next(ifl_req_end); // adjacent_find returns the first of the non-equal elements
 
     // Issue to L1I
@@ -258,7 +259,7 @@ long O3_CPU::fetch_instruction()
       ++progress;
     }
     //!! Find the next starting point of the block
-    ifl_req_begin = std::find_if(ifl_req_end, std::end(IFILTER_BUFFER), fetch_ready);
+    ifl_req_begin = std::find_if(ifl_req_end, std::end(IFETCH_BUFFER), fetch_ready);
   }
 
   return progress;
@@ -284,14 +285,14 @@ bool O3_CPU::do_fetch_instruction(std::deque<ooo_model_instr>::iterator begin, s
 long O3_CPU::promote_to_decode()
 {
   auto available_fetch_bandwidth = std::min<long>(FILTER_WIDTH, DECODE_BUFFER_SIZE - std::size(DECODE_BUFFER));
-  auto [window_begin, window_end] = champsim::get_span_p(std::begin(IFILTER_BUFFER), std::end(IFILTER_BUFFER), available_fetch_bandwidth,
+  auto [window_begin, window_end] = champsim::get_span_p(std::begin(IFETCH_BUFFER), std::end(IFETCH_BUFFER), available_fetch_bandwidth,
                                                          [cycle = current_cycle](const auto& x) { return x.fetched == COMPLETED && x.event_cycle <= cycle; });
   long progress{std::distance(window_begin, window_end)};
 
   std::for_each(window_begin, window_end,
                 [cycle = current_cycle, lat = DECODE_LATENCY, warmup = warmup](auto& x) { return x.event_cycle = cycle + ((warmup || x.decoded) ? 0 : lat); });
   std::move(window_begin, window_end, std::back_inserter(DECODE_BUFFER));
-  IFILTER_BUFFER.erase(window_begin, window_end);
+  IFETCH_BUFFER.erase(window_begin, window_end);
 
   return progress;
 }
@@ -653,7 +654,7 @@ void O3_CPU::print_deadlock()
     return std::tuple{entry.instr_id, +entry.fetched, +entry.scheduled, +entry.executed, +entry.num_reg_dependent, entry.num_mem_ops() - entry.completed_mem_ops, entry.event_cycle};
   };
   std::string_view instr_fmt{"instr_id: {} fetched: {} scheduled: {} executed: {} num_reg_dependent: {} num_mem_ops: {} event: {}"};
-  champsim::range_print_deadlock(IFILTER_BUFFER, "cpu" + std::to_string(cpu) + "_IFETCH", instr_fmt, instr_pack);
+  champsim::range_print_deadlock(IFETCH_BUFFER, "cpu" + std::to_string(cpu) + "_IFETCH", instr_fmt, instr_pack);
   champsim::range_print_deadlock(DECODE_BUFFER, "cpu" + std::to_string(cpu) + "_DECODE", instr_fmt, instr_pack);
   champsim::range_print_deadlock(DISPATCH_BUFFER, "cpu" + std::to_string(cpu) + "_DISPATCH", instr_fmt, instr_pack);
   champsim::range_print_deadlock(ROB, "cpu" + std::to_string(cpu) + "_ROB", instr_fmt, instr_pack);
