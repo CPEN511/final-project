@@ -2,6 +2,7 @@
 #include <cassert>
 #include <map>
 #include <vector>
+#include <iostream>
 
 #include "cache.h"
 
@@ -14,6 +15,7 @@ void CACHE::initialize_replacement() { ::last_used_cycles[this] = std::vector<ui
 
 uint32_t CACHE::find_victim(uint32_t triggering_cpu, uint64_t instr_id, uint32_t set, const BLOCK* current_set, uint64_t ip, uint64_t full_addr, uint32_t type)
 {
+  // std::cout << "Finding LRU victim for " << std::endl;
   auto begin = std::next(std::begin(::last_used_cycles[this]), set * NUM_WAY);
   auto end = std::next(begin, NUM_WAY);
 

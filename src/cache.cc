@@ -23,6 +23,7 @@
 #include <numeric>
 #include <fmt/core.h>
 #include <fmt/ranges.h>
+#include <iostream>
 
 #include "champsim.h"
 #include "champsim_constants.h"
@@ -85,10 +86,15 @@ bool CACHE::handle_fill(const mshr_type& fill_mshr)
 
   // find victim
   auto [set_begin, set_end] = get_set_span(fill_mshr.address);
+  auto num_elements = std::distance(set_begin, set_end);
   auto way = std::find_if_not(set_begin, set_end, [](auto x) { return x.valid; });
-  if (way == set_end)
+  if (way == set_end){
+    std::cout << "Cache is full " << NAME << std::endl;
+    std::cout << "Set address: " << set_begin->address << " Set data: " << set_begin->data
+    << " Set v_address: " << set_begin->v_address << " Set address[1]: " << set_begin[1].address << "Number of elements in set_begin: " << num_elements << std::endl;
     way = std::next(set_begin, impl_find_victim(fill_mshr.cpu, fill_mshr.instr_id, get_set_index(fill_mshr.address), &*set_begin, fill_mshr.ip,
                                                 fill_mshr.address, champsim::to_underlying(fill_mshr.type)));
+  }
   assert(set_begin <= way);
   assert(way <= set_end);
   const auto way_idx = static_cast<std::size_t>(std::distance(set_begin, way)); // cast protected by earlier assertion
