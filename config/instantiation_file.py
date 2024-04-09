@@ -185,7 +185,9 @@ def get_instantiation_lines(cores, caches, ptws, pmem, vmem):
         if elem.get('_prefetcher_data'):
             yield '.prefetcher<{}>()'.format(' | '.join('CACHE::p{}'.format(k['name']) for k in elem['_prefetcher_data']))
 
-        yield '.upper_levels({{{}}})'.format(vector_string('&{}_to_{}_queues'.format(ul, elem['name']) for ul in upper_levels[elem['name']]['uppers']))
+        if (elem['name'] == "cpu0_IFL"):
+            yield '.upper_levels({&cpu0_to_cpu0_L1I_queues})'
+        else: yield '.upper_levels({{{}}})'.format(vector_string('&{}_to_{}_queues'.format(ul, elem['name']) for ul in upper_levels[elem['name']]['uppers']))
         yield '.lower_level({})'.format('&{}_to_{}_queues'.format(elem['name'], elem['lower_level']))
 
         if 'lower_translate' in elem:

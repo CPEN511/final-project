@@ -57,10 +57,10 @@
 
     "IFL": {
         "sets": 1,
-        "ways": 16,
-        "rq_size": 32,
-        "wq_size": 32,
-        "pq_size": 32,
+        "ways": 8,
+        "rq_size": 8,
+        "wq_size": 8,
+        "pq_size": 8,
         "mshr_size": 8,
         "latency": 4,
         "max_tag_check": 2,

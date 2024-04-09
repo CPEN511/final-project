@@ -32,6 +32,8 @@
 #include "util/span.h"
 #include <fmt/core.h>
 
+#include <iostream>
+
 CACHE::tag_lookup_type::tag_lookup_type(request_type req, bool local_pref, bool skip)
     : address(req.address), v_address(req.v_address), data(req.data), ip(req.ip), instr_id(req.instr_id), pf_metadata(req.pf_metadata), cpu(req.cpu),
       type(req.type), prefetch_from_this(local_pref), skip_fill(skip), is_translated(req.is_translated), instr_depend_on_me(req.instr_depend_on_me)
@@ -226,6 +228,9 @@ bool CACHE::handle_miss(const tag_lookup_type& handle_pkt)
 
   // check mshr
   auto mshr_entry = std::find_if(std::begin(MSHR), std::end(MSHR), [match = handle_pkt.address >> OFFSET_BITS, shamt = OFFSET_BITS](const auto& entry) {
+    if constexpr (champsim::debug_print) {
+      fmt::print("MSHRRRRRRRRRRRRRRRRRRRRRRRR\n");
+    }
     return (entry.address >> shamt) == match;
   });
   bool mshr_full = (MSHR.size() == MSHR_SIZE);

@@ -30,6 +30,8 @@
 #include <fmt/core.h>
 #include <fmt/ranges.h>
 
+#include <iostream>
+
 std::chrono::seconds elapsed_time();
 
 long O3_CPU::operate()
@@ -162,7 +164,7 @@ bool O3_CPU::do_predict_branch(ooo_model_instr& arch_instr)
     }
 
     // call code prefetcher every time the branch predictor is used
-    ifl->impl_prefetcher_branch_operate(arch_instr.ip, arch_instr.branch_type, predicted_branch_target);
+    l1i->impl_prefetcher_branch_operate(arch_instr.ip, arch_instr.branch_type, predicted_branch_target);
 
     if (predicted_branch_target != arch_instr.branch_target
         || (((arch_instr.branch_type == BRANCH_CONDITIONAL) || (arch_instr.branch_type == BRANCH_OTHER))
@@ -241,25 +243,25 @@ long O3_CPU::fetch_instruction()
     return (lhs.ip >> LOG2_BLOCK_SIZE) != (rhs.ip >> LOG2_BLOCK_SIZE);
   };
   //!! find the start of first instruction block that we need to fetch
-  auto ifl_req_begin = std::find_if(std::begin(IFETCH_BUFFER), std::end(IFETCH_BUFFER), fetch_ready);
+  auto l1i_req_begin = std::find_if(std::begin(IFETCH_BUFFER), std::end(IFETCH_BUFFER), fetch_ready);
   //!! starting from L1I bandwidth, while we still have bandwidth, and ifetch buffer does have need-to-fetch instructions
-  for (auto to_read = IFL_BANDWIDTH; to_read > 0 && ifl_req_begin != std::end(IFETCH_BUFFER); --to_read) {
+  for (auto to_read = L1I_BANDWIDTH; to_read > 0 && l1i_req_begin != std::end(IFETCH_BUFFER); --to_read) {
     //!! find the end of the block we need to read in the ifetch buffer bychecking when their ip >> block size is different
-    auto ifl_req_end = std::adjacent_find(ifl_req_begin, std::end(IFETCH_BUFFER), no_match_ip);
+    auto l1i_req_end = std::adjacent_find(l1i_req_begin, std::end(IFETCH_BUFFER), no_match_ip);
     //!! Adjust the end pointer to the block to the actual position as the reason in the comment below lmao
-    if (ifl_req_end != std::end(IFETCH_BUFFER))
-      ifl_req_end = std::next(ifl_req_end); // adjacent_find returns the first of the non-equal elements
+    if (l1i_req_end != std::end(IFETCH_BUFFER))
+      l1i_req_end = std::next(l1i_req_end); // adjacent_find returns the first of the non-equal elements
 
     // Issue to L1I
     //!! This is where we issue fetch the instruction block to L1I
-    auto success = do_fetch_instruction(ifl_req_begin, ifl_req_end);
+    auto success = do_fetch_instruction(l1i_req_begin, l1i_req_end);
     if (success) {
       //!! Change all the instructions in the block as inflight
-      std::for_each(ifl_req_begin, ifl_req_end, [](auto& x) { x.fetched = INFLIGHT; });
+      std::for_each(l1i_req_begin, l1i_req_end, [](auto& x) { x.fetched = INFLIGHT; });
       ++progress;
     }
     //!! Find the next starting point of the block
-    ifl_req_begin = std::find_if(ifl_req_end, std::end(IFETCH_BUFFER), fetch_ready);
+    l1i_req_begin = std::find_if(l1i_req_end, std::end(IFETCH_BUFFER), fetch_ready);
   }
 
   return progress;
@@ -279,7 +281,7 @@ bool O3_CPU::do_fetch_instruction(std::deque<ooo_model_instr>::iterator begin, s
                std::size(fetch_packet.instr_depend_on_me), begin->event_cycle);
   }
   //!! Send the thing to the L1i BUS
-  return IFL_bus.issue_read(fetch_packet);
+  return L1I_bus.issue_read(fetch_packet);
 }
 
 long O3_CPU::promote_to_decode()
@@ -589,16 +591,16 @@ long O3_CPU::handle_memory_return()
 {
   long progress{0};
 
-  for (auto ifl_bw = FILTER_WIDTH, to_read = IFL_BANDWIDTH; ifl_bw > 0 && to_read > 0 && !IFL_bus.lower_level->returned.empty(); --to_read) {
-    auto& ifl_entry = IFL_bus.lower_level->returned.front();
+  for (auto l1i_bw = FILTER_WIDTH, to_read = L1I_BANDWIDTH; l1i_bw > 0 && to_read > 0 && !L1I_bus.lower_level->returned.empty(); --to_read) {
+    auto& l1i_entry = L1I_bus.lower_level->returned.front();
     //!! while l1i still have bw and the entry still has dependency
-    while (ifl_bw > 0 && !ifl_entry.instr_depend_on_me.empty()) {
-      ooo_model_instr& fetched = ifl_entry.instr_depend_on_me.front();
+    while (l1i_bw > 0 && !l1i_entry.instr_depend_on_me.empty()) {
+      ooo_model_instr& fetched = l1i_entry.instr_depend_on_me.front();
       //!! if the front dependency instruction's block address matched the one we got from L1I and its not fetched 
       //!! or I think this is just the check to see if the instruction fetched is the one we want
-      if ((fetched.ip >> LOG2_BLOCK_SIZE) == (ifl_entry.v_address >> LOG2_BLOCK_SIZE) && fetched.fetched != 0) {
+      if ((fetched.ip >> LOG2_BLOCK_SIZE) == (l1i_entry.v_address >> LOG2_BLOCK_SIZE) && fetched.fetched != 0) {
         fetched.fetched = COMPLETED;
-        --ifl_bw;
+        --l1i_bw;
         ++progress;
 
         if constexpr (champsim::debug_print) {
@@ -606,12 +608,12 @@ long O3_CPU::handle_memory_return()
         }
       }
       //!! now we served this one small fetch request, pop it
-      ifl_entry.instr_depend_on_me.erase(std::begin(ifl_entry.instr_depend_on_me));
+      l1i_entry.instr_depend_on_me.erase(std::begin(l1i_entry.instr_depend_on_me));
     }
 
     // remove this entry if we have serviced all of its instructions
-    if (ifl_entry.instr_depend_on_me.empty()) {
-      IFL_bus.lower_level->returned.pop_front();
+    if (l1i_entry.instr_depend_on_me.empty()) {
+      L1I_bus.lower_level->returned.pop_front();
       ++progress;
     }
   }
