@@ -90,22 +90,26 @@ bool CACHE::handle_fill(const mshr_type& fill_mshr)
   auto num_elements = std::distance(set_begin, set_end);
   auto way = std::find_if_not(set_begin, set_end, [](auto x) { return x.valid; });
 
-  auto [ifl_set_begin, ifl_set_end] = get_set_span(2);
-  auto ifl_num_elements = std::distance(set_begin, set_end);
-  auto ifl_way = std::find_if_not(set_begin, set_end, [](auto x) { return x.valid; });
+  if (NAME == "cpu0_L1I"){
+    
+    auto [ifl_set_begin, ifl_set_end] = get_set_span(2);
+    auto ifl_num_elements = std::distance(ifl_set_begin, ifl_set_end);
+    auto ifl_way = std::find_if_not(ifl_set_begin, ifl_set_end, [](auto x) { return x.valid; });
 
-  if (way == set_end && NAME == "cpu0_L1I"){
-    way = std::next(ifl_set_begin, impl_find_victim(fill_mshr.cpu, fill_mshr.instr_id, get_set_index(2), &*ifl_set_begin, fill_mshr.ip,
-                                              fill_mshr.address, champsim::to_underlying(fill_mshr.type)));
-    set_begin = ifl_set_begin;
-    set_end = ifl_set_end;
-    num_elements = ifl_num_elements;
+    if (way == ifl_set_end && NAME == "cpu0_L1I"){
+      std::cout << "Calling L1I find victim" << std::endl;
+      way = std::next(ifl_set_begin, impl_find_victim(fill_mshr.cpu, fill_mshr.instr_id, get_set_index(2), &*ifl_set_begin, fill_mshr.ip,
+                                                fill_mshr.address, champsim::to_underlying(fill_mshr.type)));
+      set_begin = ifl_set_begin;
+      set_end = ifl_set_end;
+      num_elements = ifl_num_elements;
+    }
+    std::cout << "HANDLE FILL L1I CACHE: "<< NAME << std::endl;
   }
-
   else if (way == set_end){
-    std::cout << "Cache is full " << NAME << std::endl;
-    std::cout << "Set address: " << set_begin->address << " Set data: " << set_begin->data
-    << " Set v_address: " << set_begin->v_address << " Set address[1]: " << set_begin[1].address << "Number of elements in set_begin: " << num_elements << std::endl;
+    // std::cout << "Cache is full " << NAME << std::endl;
+    // std::cout << "Set address: " << set_begin->address << " Set data: " << set_begin->data
+    // << " Set v_address: " << set_begin->v_address << " Set address[1]: " << set_begin[1].address << "Number of elements in set_begin: " << num_elements << std::endl;
     way = std::next(set_begin, impl_find_victim(fill_mshr.cpu, fill_mshr.instr_id, get_set_index(fill_mshr.address), &*set_begin, fill_mshr.ip,
                                                 fill_mshr.address, champsim::to_underlying(fill_mshr.type)));
   }
@@ -155,21 +159,32 @@ bool CACHE::handle_fill(const mshr_type& fill_mshr)
 
       *way = BLOCK{fill_mshr};
 
-      metadata_thru = impl_prefetcher_cache_fill(pkt_address, get_set_index(fill_mshr.address), way_idx, fill_mshr.type == access_type::PREFETCH,
+      if (NAME == "cpu0_L1I"){
+      metadata_thru = impl_prefetcher_cache_fill(pkt_address, get_set_index(2), way_idx, fill_mshr.type == access_type::PREFETCH,
                                                  evicting_address, metadata_thru);
-      impl_update_replacement_state(fill_mshr.cpu, get_set_index(fill_mshr.address), way_idx, fill_mshr.address, fill_mshr.ip, evicting_address,
+      impl_update_replacement_state(fill_mshr.cpu, get_set_index(2), way_idx, fill_mshr.address, fill_mshr.ip, evicting_address,
                                     champsim::to_underlying(fill_mshr.type), false);
-
+      } else {
+        metadata_thru = impl_prefetcher_cache_fill(pkt_address, get_set_index(fill_mshr.address), way_idx, fill_mshr.type == access_type::PREFETCH,
+                                                 evicting_address, metadata_thru);
+        impl_update_replacement_state(fill_mshr.cpu, get_set_index(fill_mshr.address), way_idx, fill_mshr.address, fill_mshr.ip, evicting_address,
+                                    champsim::to_underlying(fill_mshr.type), false);
+      }
       way->pf_metadata = metadata_thru;
     }
   } else {
     // Bypass
     assert(fill_mshr.type != access_type::WRITE);
-
+    if (NAME == "cpu0_L1I"){
     metadata_thru =
-        impl_prefetcher_cache_fill(pkt_address, get_set_index(fill_mshr.address), way_idx, fill_mshr.type == access_type::PREFETCH, 0, metadata_thru);
-    impl_update_replacement_state(fill_mshr.cpu, get_set_index(fill_mshr.address), way_idx, fill_mshr.address, fill_mshr.ip, 0,
+        impl_prefetcher_cache_fill(pkt_address, get_set_index(2), way_idx, fill_mshr.type == access_type::PREFETCH, 0, metadata_thru);
+    impl_update_replacement_state(fill_mshr.cpu, get_set_index(2), way_idx, fill_mshr.address, fill_mshr.ip, 0,
                                   champsim::to_underlying(fill_mshr.type), false);
+    } else {
+      impl_prefetcher_cache_fill(pkt_address, get_set_index(fill_mshr.address), way_idx, fill_mshr.type == access_type::PREFETCH, 0, metadata_thru);
+      impl_update_replacement_state(fill_mshr.cpu, get_set_index(fill_mshr.address), way_idx, fill_mshr.address, fill_mshr.ip, 0,
+                                  champsim::to_underlying(fill_mshr.type), false);
+    }
   }
 
   if (success) {
@@ -197,15 +212,17 @@ bool CACHE::try_hit(const tag_lookup_type& handle_pkt)
   auto hit = (way != set_end);
 
   if (NAME == "cpu0_L1I"){
+    std::cout << "TRY HIT L1I CACHE: "<< NAME << " RESULT: " << hit <<std::endl;
     auto [ifl_set_begin, ifl_set_end] = get_set_span(2);
     set_begin = ifl_set_begin;
     set_end = ifl_set_end;
     way = std::find_if(set_begin, set_end,
                         [match = handle_pkt.address >> OFFSET_BITS, shamt = OFFSET_BITS](const auto& entry) { return (entry.address >> shamt) == match; });
     ifl_hit = (way != set_end);
+    std::cout << "TRY HIT IFL CACHE: "<< NAME << " RESULT: " << ifl_hit <<std::endl;
   }
 
-  if (!ifl_hit) {
+  if (!ifl_hit && NAME == "cpu0_L1I") {
     auto [temp_set_begin, temp_set_end] = get_set_span(handle_pkt.address);
     set_begin = temp_set_begin;
     set_end = temp_set_end;
@@ -234,10 +251,10 @@ bool CACHE::try_hit(const tag_lookup_type& handle_pkt)
 
     // update replacement policy
     const auto way_idx = static_cast<std::size_t>(std::distance(set_begin, way)); // cast protected by earlier assertion
-    if (get_set_index(handle_pkt.address) > 63 && NAME == "cpu0_L1I") 
-    {
-        std::cout << "TRY HIT   CACHE: "<< NAME << std::endl;
-    }
+    // if (get_set_index(2) > 63 && NAME == "cpu0_L1I") 
+    // {
+    //     std::cout << "TRY HIT   CACHE: "<< NAME << std::endl;
+    // }
 
     if (ifl_hit)
       impl_update_replacement_state(handle_pkt.cpu, get_set_index(2), way_idx, way->address, handle_pkt.ip, 0,
@@ -305,7 +322,8 @@ bool CACHE::handle_miss(const tag_lookup_type& handle_pkt)
     fwd_pkt.pf_metadata = handle_pkt.pf_metadata;
     fwd_pkt.cpu = handle_pkt.cpu;
 
-    fwd_pkt.address = handle_pkt.address;
+    if (NAME == "cpu0_L1I") fwd_pkt.address = 2;
+    else fwd_pkt.address = handle_pkt.address;
     fwd_pkt.v_address = handle_pkt.v_address;
     fwd_pkt.data = handle_pkt.data;
     fwd_pkt.instr_id = handle_pkt.instr_id;
@@ -474,6 +492,8 @@ uint64_t CACHE::get_set(uint64_t address) const { return get_set_index(address);
 
 //get_set_index(2);
 std::size_t CACHE::get_set_index(uint64_t address) const { 
+  //std::cout << "NUMSET is " << NUM_SET << std::endl;
+  //std::cout << "Result is " << champsim::lg2(NUM_SET) << std::endl;
   if (address == 2){
     return 64;
   }
@@ -490,6 +510,7 @@ std::pair<It, It> get_span(It anchor, typename std::iterator_traits<It>::differe
 auto CACHE::get_set_span(uint64_t address) -> std::pair<std::vector<BLOCK>::iterator, std::vector<BLOCK>::iterator>
 {
   const auto set_idx = get_set_index(address);
+  //std::cout << "SET_SPAM IN CACHE " << NAME << std::endl;
   assert(set_idx < NUM_SET);
   return get_span(std::begin(block), static_cast<std::vector<BLOCK>::difference_type>(set_idx), NUM_WAY); // safe cast because of prior assert
 }
@@ -555,6 +576,10 @@ void CACHE::finish_packet(const response_type& packet)
   // check MSHR information
   auto mshr_entry = std::find_if(std::begin(MSHR), std::end(MSHR),
                                  [match = packet.address >> OFFSET_BITS, shamt = OFFSET_BITS](const auto& entry) { return (entry.address >> shamt) == match; });
+  if (NAME == "cpu0_L1I"){
+    auto mshr_entry = std::find_if(std::begin(MSHR), std::end(MSHR),
+                                 [match = packet.address, shamt = OFFSET_BITS](const auto& entry) { return (entry.address) == match; });
+  }
   auto first_unreturned = std::find_if(MSHR.begin(), MSHR.end(), [](auto x) { return x.event_cycle == std::numeric_limits<uint64_t>::max(); });
 
   // sanity check
