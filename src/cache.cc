@@ -85,10 +85,24 @@ bool CACHE::handle_fill(const mshr_type& fill_mshr)
   cpu = fill_mshr.cpu;
 
   // find victim
+
   auto [set_begin, set_end] = get_set_span(fill_mshr.address);
   auto num_elements = std::distance(set_begin, set_end);
   auto way = std::find_if_not(set_begin, set_end, [](auto x) { return x.valid; });
-  if (way == set_end){
+
+  auto [ifl_set_begin, ifl_set_end] = get_set_span(2);
+  auto ifl_num_elements = std::distance(set_begin, set_end);
+  auto ifl_way = std::find_if_not(set_begin, set_end, [](auto x) { return x.valid; });
+
+  if (way == set_end && NAME == "cpu0_L1I"){
+    way = std::next(ifl_set_begin, impl_find_victim(fill_mshr.cpu, fill_mshr.instr_id, get_set_index(2), &*ifl_set_begin, fill_mshr.ip,
+                                              fill_mshr.address, champsim::to_underlying(fill_mshr.type)));
+    set_begin = ifl_set_begin;
+    set_end = ifl_set_end;
+    num_elements = ifl_num_elements;
+  }
+
+  else if (way == set_end){
     std::cout << "Cache is full " << NAME << std::endl;
     std::cout << "Set address: " << set_begin->address << " Set data: " << set_begin->data
     << " Set v_address: " << set_begin->v_address << " Set address[1]: " << set_begin[1].address << "Number of elements in set_begin: " << num_elements << std::endl;
@@ -173,12 +187,33 @@ bool CACHE::handle_fill(const mshr_type& fill_mshr)
 bool CACHE::try_hit(const tag_lookup_type& handle_pkt)
 {
   cpu = handle_pkt.cpu;
+  bool ifl_hit = 0;
 
   // access cache
   auto [set_begin, set_end] = get_set_span(handle_pkt.address);
+
   auto way = std::find_if(set_begin, set_end,
                           [match = handle_pkt.address >> OFFSET_BITS, shamt = OFFSET_BITS](const auto& entry) { return (entry.address >> shamt) == match; });
-  const auto hit = (way != set_end);
+  auto hit = (way != set_end);
+
+  if (NAME == "cpu0_L1I"){
+    auto [ifl_set_begin, ifl_set_end] = get_set_span(2);
+    set_begin = ifl_set_begin;
+    set_end = ifl_set_end;
+    way = std::find_if(set_begin, set_end,
+                        [match = handle_pkt.address >> OFFSET_BITS, shamt = OFFSET_BITS](const auto& entry) { return (entry.address >> shamt) == match; });
+    ifl_hit = (way != set_end);
+  }
+
+  if (!ifl_hit) {
+    auto [temp_set_begin, temp_set_end] = get_set_span(handle_pkt.address);
+    set_begin = temp_set_begin;
+    set_end = temp_set_end;
+    way = std::find_if(set_begin, set_end,
+                          [match = handle_pkt.address >> OFFSET_BITS, shamt = OFFSET_BITS](const auto& entry) { return (entry.address >> shamt) == match; });
+  }
+  hit = ifl_hit | hit;
+
   const auto useful_prefetch = (hit && way->prefetch && !handle_pkt.prefetch_from_this);
 
   if constexpr (champsim::debug_print) {
@@ -199,7 +234,15 @@ bool CACHE::try_hit(const tag_lookup_type& handle_pkt)
 
     // update replacement policy
     const auto way_idx = static_cast<std::size_t>(std::distance(set_begin, way)); // cast protected by earlier assertion
-    impl_update_replacement_state(handle_pkt.cpu, get_set_index(handle_pkt.address), way_idx, way->address, handle_pkt.ip, 0,
+    if (get_set_index(handle_pkt.address) > 63 && NAME == "cpu0_L1I") 
+    {
+        std::cout << "TRY HIT   CACHE: "<< NAME << std::endl;
+    }
+
+    if (ifl_hit)
+      impl_update_replacement_state(handle_pkt.cpu, get_set_index(2), way_idx, way->address, handle_pkt.ip, 0,
+                                  champsim::to_underlying(handle_pkt.type), true);
+    else impl_update_replacement_state(handle_pkt.cpu, get_set_index(handle_pkt.address), way_idx, way->address, handle_pkt.ip, 0,
                                   champsim::to_underlying(handle_pkt.type), true);
 
     response_type response{handle_pkt.address, handle_pkt.v_address, way->data, metadata_thru, handle_pkt.instr_depend_on_me};
@@ -429,7 +472,13 @@ long CACHE::operate()
 uint64_t CACHE::get_set(uint64_t address) const { return get_set_index(address); }
 // LCOV_EXCL_STOP
 
-std::size_t CACHE::get_set_index(uint64_t address) const { return (address >> OFFSET_BITS) & champsim::bitmask(champsim::lg2(NUM_SET)); }
+//get_set_index(2);
+std::size_t CACHE::get_set_index(uint64_t address) const { 
+  if (address == 2){
+    return 64;
+  }
+  return ((address >> OFFSET_BITS) & champsim::bitmask(champsim::lg2(NUM_SET)));
+}
 
 template <typename It>
 std::pair<It, It> get_span(It anchor, typename std::iterator_traits<It>::difference_type set_idx, typename std::iterator_traits<It>::difference_type num_way)

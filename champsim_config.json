@@ -39,7 +39,7 @@
     },
 
     "L1I": {
-        "sets": 1,
+        "sets": 65,
         "ways": 16,
         "rq_size": 64,
         "wq_size": 64,
@@ -52,7 +52,7 @@
         "virtual_prefetch": true,
         "prefetch_activate": "LOAD,PREFETCH",
         "prefetcher": "no_instr",
-        "replacement": "acic"
+        "replacement" : "lru"
     },
 
     "L1D": {
