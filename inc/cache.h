@@ -140,9 +140,9 @@ class CACHE : public champsim::operable
   };
   using set_type = std::vector<BLOCK>;
 
-  std::pair<set_type::iterator, set_type::iterator> get_set_span(uint64_t address);
-  std::pair<set_type::const_iterator, set_type::const_iterator> get_set_span(uint64_t address) const;
-  std::size_t get_set_index(uint64_t address) const;
+  std::pair<set_type::iterator, set_type::iterator> get_set_span(uint64_t address,uint8_t ifl_flag);
+  std::pair<set_type::const_iterator, set_type::const_iterator> get_set_span(uint64_t address,uint8_t ifl_flag) const;
+  std::size_t get_set_index(uint64_t address,uint8_t ifl_flag) const;
 
   template <typename T>
   bool should_activate_prefetcher(const T& pkt) const;
@@ -207,7 +207,7 @@ public:
   std::vector<std::size_t> get_pq_size() const;
   std::vector<double> get_pq_occupancy_ratio() const;
 
-  [[deprecated("Use get_set_index() instead.")]] uint64_t get_set(uint64_t address) const;
+  [[deprecated("Use get_set_index() instead.")]] uint64_t get_set(uint64_t address,uint8_t ifl_flag) const;
   [[deprecated("This function should not be used to access the blocks directly.")]] uint64_t get_way(uint64_t address, uint64_t set) const;
 
   uint64_t invalidate_entry(uint64_t inval_addr);
