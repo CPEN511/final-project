@@ -83,6 +83,7 @@ CACHE::BLOCK::BLOCK(mshr_type mshr)
 bool CACHE::handle_fill(const mshr_type& fill_mshr)
 {
   bool replIfl {true};
+  bool l1iFull {false};
   cpu = fill_mshr.cpu;
 
   // find victim
@@ -105,6 +106,7 @@ bool CACHE::handle_fill(const mshr_type& fill_mshr)
     // found ifl victim
     // find l1i victim
     if (way == set_end){
+      l1iFull = true;
       std::cout << "Calling L1I find victim" << std::endl;
       way = std::next(set_begin, impl_find_victim(fill_mshr.cpu, fill_mshr.instr_id, get_set_index(fill_mshr.address,false), &*set_begin, fill_mshr.ip,
                                                 fill_mshr.address, champsim::to_underlying(fill_mshr.type)));
@@ -112,7 +114,7 @@ bool CACHE::handle_fill(const mshr_type& fill_mshr)
     // found victims of l1i (0-63) and ifl (64)
 
     // need to compare two victims
-    replIfl = compare_victim(ifl_way->address);
+    replIfl = compare_victim(ifl_way->address, way->address, l1iFull);
     if (replIfl)
     {
       set_begin = ifl_set_begin;
@@ -274,10 +276,6 @@ bool CACHE::try_hit(const tag_lookup_type& handle_pkt)
 
     // update replacement policy
     const auto way_idx = static_cast<std::size_t>(std::distance(set_begin, way)); // cast protected by earlier assertion
-    // if (get_set_index(2) > 63 && NAME == "cpu0_L1I") 
-    // {
-    //     std::cout << "TRY HIT   CACHE: "<< NAME << std::endl;
-    // }
 
     if (ifl_hit)
       impl_update_replacement_state(handle_pkt.cpu, get_set_index(handle_pkt.address,true), way_idx, way->address, handle_pkt.ip, 0,
