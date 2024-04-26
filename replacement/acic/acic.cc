@@ -73,6 +73,13 @@ void CACHE::initialize_replacement()
 uint32_t CACHE::find_victim(uint32_t triggering_cpu, uint64_t instr_id, uint32_t set, const BLOCK* current_set, uint64_t ip, uint64_t full_addr, uint32_t type)
 {
     std::cout << "Finding ACIC victim" << std::endl;
+
+    // if set is 64 it is ifl
+
+    // if ifl contender has greater reuse distance than l1i contender send set 64, way_num
+
+    // if l1i cache contender has greater reuse distance send set of l1i, way_num
+
     // check if ifl is full first
     for (int i = 0; i < IFILTER_ENTRIES; i++)
     {
