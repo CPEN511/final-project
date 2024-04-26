@@ -34,21 +34,6 @@ class CSHR
         uint8_t lru;
 };
 
-class pt_update_entry
-{
-    public:
-        uint8_t pt_idx;
-        bool update_req;
-};
-
-class pt_update_block
-{
-    public:
-        std::vector<pt_update_entry> pt_update_entries = std::vector<pt_update_entry> (PT_UPDATE_SLOTS);
-};
-
-std::queue<pt_update_block> pt_update_queue;
-
 std::vector<CSHR> cshr_table (NUM_ENTRIES_CSHR);
 
 void CACHE::initialize_replacement() 
@@ -103,8 +88,9 @@ bool CACHE::compare_victim(uint64_t ifl_tag, uint64_t l1i_tag,  bool iflFull, bo
     for (int i = 0; i < NUM_ENTRIES_CSHR; i++)
     {
         // find the slot with least LRU value
-        if (cshr_table[i].lru < smallestLru && cshr_table[i].valid == 0 && l1iFull)
+        if (cshr_table[i].lru < smallestLru && cshr_table[i].valid == 0 && l1iFull && iflFull)
         {
+            std::cout << "Finding Smallest LRU index" << std::endl;
             smallestLru = cshr_table[i].lru;
             smallestLru_idx = i;
         }
@@ -113,6 +99,7 @@ bool CACHE::compare_victim(uint64_t ifl_tag, uint64_t l1i_tag,  bool iflFull, bo
     // insert ifl and l1i tag into slot with least LRU value
     if (l1iFull && iflFull)
     {
+        std::cout << "Placing into CSHR" << std::endl;
         cshr_table[smallestLru_idx].ifl_tag = ifl_tag;
         cshr_table[smallestLru_idx].l1i_tag = l1i_tag;
         cshr_table[smallestLru_idx].valid = 1;

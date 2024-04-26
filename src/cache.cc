@@ -126,7 +126,7 @@ bool CACHE::handle_fill(const mshr_type& fill_mshr)
       num_elements = ifl_num_elements;
       way = ifl_way;
       iflSet = true;
-    }
+    } 
     // auto [replSet, replWay] = compare_victim();      // gives us 1 victim out of l1i and ifl
     // std::cout << "Final Set = " << replSet << " Final Way = " << replWay << std::endl;
     // auto [replSet, replay] = impl_compare_victim(64, ifl_way, get_set_index(fill_mshr.address,false), way, &*set_begin, &*ifl_set_begin);      // gives us 1 victim out of l1i and ifl
