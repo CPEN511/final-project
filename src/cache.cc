@@ -119,6 +119,7 @@ bool CACHE::handle_fill(const mshr_type& fill_mshr)
 
     // need to compare two victims
     replIfl = compare_victim(ifl_way->address, way->address, iflFull, l1iFull);
+    
     if (replIfl)
     {
       set_begin = ifl_set_begin;
@@ -127,6 +128,8 @@ bool CACHE::handle_fill(const mshr_type& fill_mshr)
       way = ifl_way;
       iflSet = true;
     } 
+
+    std::cout << "L1I REPL " << " SET: " << get_set_index(fill_mshr.address,replIfl) << " WAY: " << static_cast<uint32_t>(std::distance(set_begin, way)) << std::endl;
     // auto [replSet, replWay] = compare_victim();      // gives us 1 victim out of l1i and ifl
     // std::cout << "Final Set = " << replSet << " Final Way = " << replWay << std::endl;
     // auto [replSet, replay] = impl_compare_victim(64, ifl_way, get_set_index(fill_mshr.address,false), way, &*set_begin, &*ifl_set_begin);      // gives us 1 victim out of l1i and ifl
@@ -190,9 +193,9 @@ bool CACHE::handle_fill(const mshr_type& fill_mshr)
       *way = BLOCK{fill_mshr};
 
       if (NAME == "cpu0_L1I"){
-      metadata_thru = impl_prefetcher_cache_fill(pkt_address, get_set_index(fill_mshr.address,iflSet), way_idx, fill_mshr.type == access_type::PREFETCH,
+      metadata_thru = impl_prefetcher_cache_fill(pkt_address, get_set_index(fill_mshr.address,replIfl), way_idx, fill_mshr.type == access_type::PREFETCH,
                                                  evicting_address, metadata_thru);
-      impl_update_replacement_state(fill_mshr.cpu, get_set_index(fill_mshr.address,iflSet), way_idx, fill_mshr.address, fill_mshr.ip, evicting_address,
+      impl_update_replacement_state(fill_mshr.cpu, get_set_index(fill_mshr.address,replIfl), way_idx, fill_mshr.address, fill_mshr.ip, evicting_address,
                                     champsim::to_underlying(fill_mshr.type), false);
       } else {
         metadata_thru = impl_prefetcher_cache_fill(pkt_address, get_set_index(fill_mshr.address,false), way_idx, fill_mshr.type == access_type::PREFETCH,
@@ -207,8 +210,8 @@ bool CACHE::handle_fill(const mshr_type& fill_mshr)
     assert(fill_mshr.type != access_type::WRITE);
     if (NAME == "cpu0_L1I"){
     metadata_thru =
-        impl_prefetcher_cache_fill(pkt_address, get_set_index(fill_mshr.address,iflSet), way_idx, fill_mshr.type == access_type::PREFETCH, 0, metadata_thru);
-    impl_update_replacement_state(fill_mshr.cpu, get_set_index(fill_mshr.address,iflSet), way_idx, fill_mshr.address, fill_mshr.ip, 0,
+        impl_prefetcher_cache_fill(pkt_address, get_set_index(fill_mshr.address,replIfl), way_idx, fill_mshr.type == access_type::PREFETCH, 0, metadata_thru);
+    impl_update_replacement_state(fill_mshr.cpu, get_set_index(fill_mshr.address,replIfl), way_idx, fill_mshr.address, fill_mshr.ip, 0,
                                   champsim::to_underlying(fill_mshr.type), false);
     } else {
       impl_prefetcher_cache_fill(pkt_address, get_set_index(fill_mshr.address,false), way_idx, fill_mshr.type == access_type::PREFETCH, 0, metadata_thru);
