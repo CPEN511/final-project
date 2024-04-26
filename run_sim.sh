@@ -10,9 +10,11 @@ echo " "
 echo "Removing csconfig..."
 rm -rf .csconfig/
 echo "Removed csconfig"
+echo " "
 echo "Running configs..."
 ./config.sh $config_file
 echo "Configs Done!"
+echo " "
 echo "Making..."
 make
 echo "Built Code!"
