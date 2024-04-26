@@ -121,6 +121,7 @@ class CACHE : public champsim::operable
   bool handle_write(const tag_lookup_type& handle_pkt);
   void finish_packet(const response_type& packet);
   void finish_translation(const response_type& packet);
+  bool compare_victim(uint64_t tag);
 
   void issue_translation();
 

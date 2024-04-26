@@ -82,6 +82,7 @@ CACHE::BLOCK::BLOCK(mshr_type mshr)
 
 bool CACHE::handle_fill(const mshr_type& fill_mshr)
 {
+  bool replIfl {true};
   cpu = fill_mshr.cpu;
 
   // find victim
@@ -92,20 +93,41 @@ bool CACHE::handle_fill(const mshr_type& fill_mshr)
 
   if (NAME == "cpu0_L1I"){
     
-    auto [ifl_set_begin, ifl_set_end] = get_set_span(fill_mshr.address,true);
+    auto [ifl_set_begin, ifl_set_end] = get_set_span(fill_mshr.address, true);
     auto ifl_num_elements = std::distance(ifl_set_begin, ifl_set_end);
     auto ifl_way = std::find_if_not(ifl_set_begin, ifl_set_end, [](auto x) { return x.valid; });
 
     if (ifl_way == ifl_set_end && NAME == "cpu0_L1I"){
-      std::cout << "Calling L1I find victim" << std::endl;
+      std::cout << "Calling L1I IFL find victim" << std::endl;
       ifl_way = std::next(ifl_set_begin, impl_find_victim(fill_mshr.cpu, fill_mshr.instr_id, get_set_index(fill_mshr.address,true), &*ifl_set_begin, fill_mshr.ip,
                                                 fill_mshr.address, champsim::to_underlying(fill_mshr.type)));
     }
-    set_begin = ifl_set_begin;
-    set_end = ifl_set_end;
-    num_elements = ifl_num_elements;
-    way = ifl_way;
-    std::cout << "HANDLE FILL L1I CACHE: "<< NAME << std::endl;
+    // found ifl victim
+    // find l1i victim
+    if (way == set_end){
+      std::cout << "Calling L1I find victim" << std::endl;
+      way = std::next(set_begin, impl_find_victim(fill_mshr.cpu, fill_mshr.instr_id, get_set_index(fill_mshr.address,false), &*set_begin, fill_mshr.ip,
+                                                fill_mshr.address, champsim::to_underlying(fill_mshr.type)));
+    }
+    // found victims of l1i (0-63) and ifl (64)
+
+    // need to compare two victims
+    replIfl = compare_victim(ifl_way->address);
+    if (replIfl)
+    {
+      set_begin = ifl_set_begin;
+      set_end = ifl_set_end;
+      num_elements = ifl_num_elements;
+      way = ifl_way;
+    }
+    // auto [replSet, replWay] = compare_victim();      // gives us 1 victim out of l1i and ifl
+    // std::cout << "Final Set = " << replSet << " Final Way = " << replWay << std::endl;
+    // auto [replSet, replay] = impl_compare_victim(64, ifl_way, get_set_index(fill_mshr.address,false), way, &*set_begin, &*ifl_set_begin);      // gives us 1 victim out of l1i and ifl
+    // find which one of these to insert the new line to either 0-63set or 64th set
+    // set_begin = ifl_set_begin;
+    // set_end = ifl_set_end;
+    // num_elements = ifl_num_elements;
+    // way = ifl_way;
   }
   else if (way == set_end){
     // std::cout << "Cache is full " << NAME << std::endl;
