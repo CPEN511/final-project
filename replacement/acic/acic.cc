@@ -82,7 +82,7 @@ uint32_t CACHE::find_victim(uint32_t triggering_cpu, uint64_t instr_id, uint32_t
 }
 
 // Called by IFL
-bool CACHE::compare_victim(uint64_t ifl_tag, uint64_t l1i_tag,  bool l1iFull)
+bool CACHE::compare_victim(uint64_t ifl_tag, uint64_t l1i_tag,  bool iflFull, bool l1iFull)
 {
     uint16_t hash = ifl_tag % NUM_HRT_ENTRIES;      // index for HRT table
     bool replIfl {true}; 
@@ -93,7 +93,7 @@ bool CACHE::compare_victim(uint64_t ifl_tag, uint64_t l1i_tag,  bool l1iFull)
     uint32_t replWayNum;
 
     std::cout << "HASH: " << hash << " HRT: " << hrt_table.at(hash) << " PT: " << pt_table.at(hrt_table.at(hash)) << " Threshold: " << threshold << std::endl;
-    if (pt_table.at(hrt_table.at(hash)) >= threshold && l1iFull)
+    if (pt_table.at(hrt_table.at(hash)) >= threshold && iflFull)
     {
         // place ifl in l1i so l1i is victim
         replIfl = false;
@@ -111,7 +111,7 @@ bool CACHE::compare_victim(uint64_t ifl_tag, uint64_t l1i_tag,  bool l1iFull)
     }
 
     // insert ifl and l1i tag into slot with least LRU value
-    if (l1iFull)
+    if (l1iFull && iflFull)
     {
         cshr_table[smallestLru_idx].ifl_tag = ifl_tag;
         cshr_table[smallestLru_idx].l1i_tag = l1i_tag;
@@ -142,6 +142,7 @@ void CACHE::update_replacement_state(uint32_t triggering_cpu, uint32_t set, uint
             hrt_table.at(ifl_hash) = (hrt_table.at(ifl_hash) << 1) | (IFL_HIT);
             pt_table.at(hrt_table.at(ifl_hash)) += 1;
             cshr_table[i].lru++;
+            cshr_table[i].valid = 0;
             break;
         }
         else if (full_addr == cshr_table[i].l1i_tag)
@@ -150,6 +151,7 @@ void CACHE::update_replacement_state(uint32_t triggering_cpu, uint32_t set, uint
             hrt_table.at(l1i_hash) = (hrt_table.at(l1i_hash) << 1) | (L1I_HIT);
             pt_table.at(hrt_table.at(l1i_hash)) -= 1;
             cshr_table[i].lru++;
+            cshr_table[i].valid = 0;
             break;
         }
     }

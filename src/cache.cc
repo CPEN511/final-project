@@ -84,6 +84,8 @@ bool CACHE::handle_fill(const mshr_type& fill_mshr)
 {
   bool replIfl {true};
   bool l1iFull {false};
+  bool iflFull {false};
+  bool iflSet {true};
   cpu = fill_mshr.cpu;
 
   // find victim
@@ -94,33 +96,36 @@ bool CACHE::handle_fill(const mshr_type& fill_mshr)
 
   if (NAME == "cpu0_L1I"){
     
-    auto [ifl_set_begin, ifl_set_end] = get_set_span(fill_mshr.address, true);
+    auto [ifl_set_begin, ifl_set_end] = get_set_span(fill_mshr.address, iflSet);
     auto ifl_num_elements = std::distance(ifl_set_begin, ifl_set_end);
     auto ifl_way = std::find_if_not(ifl_set_begin, ifl_set_end, [](auto x) { return x.valid; });
 
     if (ifl_way == ifl_set_end && NAME == "cpu0_L1I"){
+      iflFull = true;
       std::cout << "Calling L1I IFL find victim" << std::endl;
-      ifl_way = std::next(ifl_set_begin, impl_find_victim(fill_mshr.cpu, fill_mshr.instr_id, get_set_index(fill_mshr.address,true), &*ifl_set_begin, fill_mshr.ip,
+      ifl_way = std::next(ifl_set_begin, impl_find_victim(fill_mshr.cpu, fill_mshr.instr_id, get_set_index(fill_mshr.address,iflSet), &*ifl_set_begin, fill_mshr.ip,
                                                 fill_mshr.address, champsim::to_underlying(fill_mshr.type)));
     }
     // found ifl victim
     // find l1i victim
     if (way == set_end){
       l1iFull = true;
+      iflSet = false;
       std::cout << "Calling L1I find victim" << std::endl;
-      way = std::next(set_begin, impl_find_victim(fill_mshr.cpu, fill_mshr.instr_id, get_set_index(fill_mshr.address,false), &*set_begin, fill_mshr.ip,
+      way = std::next(set_begin, impl_find_victim(fill_mshr.cpu, fill_mshr.instr_id, get_set_index(fill_mshr.address,iflSet), &*set_begin, fill_mshr.ip,
                                                 fill_mshr.address, champsim::to_underlying(fill_mshr.type)));
     }
     // found victims of l1i (0-63) and ifl (64)
 
     // need to compare two victims
-    replIfl = compare_victim(ifl_way->address, way->address, l1iFull);
+    replIfl = compare_victim(ifl_way->address, way->address, iflFull, l1iFull);
     if (replIfl)
     {
       set_begin = ifl_set_begin;
       set_end = ifl_set_end;
       num_elements = ifl_num_elements;
       way = ifl_way;
+      iflSet = true;
     }
     // auto [replSet, replWay] = compare_victim();      // gives us 1 victim out of l1i and ifl
     // std::cout << "Final Set = " << replSet << " Final Way = " << replWay << std::endl;
@@ -185,9 +190,9 @@ bool CACHE::handle_fill(const mshr_type& fill_mshr)
       *way = BLOCK{fill_mshr};
 
       if (NAME == "cpu0_L1I"){
-      metadata_thru = impl_prefetcher_cache_fill(pkt_address, get_set_index(fill_mshr.address,true), way_idx, fill_mshr.type == access_type::PREFETCH,
+      metadata_thru = impl_prefetcher_cache_fill(pkt_address, get_set_index(fill_mshr.address,iflSet), way_idx, fill_mshr.type == access_type::PREFETCH,
                                                  evicting_address, metadata_thru);
-      impl_update_replacement_state(fill_mshr.cpu, get_set_index(fill_mshr.address,true), way_idx, fill_mshr.address, fill_mshr.ip, evicting_address,
+      impl_update_replacement_state(fill_mshr.cpu, get_set_index(fill_mshr.address,iflSet), way_idx, fill_mshr.address, fill_mshr.ip, evicting_address,
                                     champsim::to_underlying(fill_mshr.type), false);
       } else {
         metadata_thru = impl_prefetcher_cache_fill(pkt_address, get_set_index(fill_mshr.address,false), way_idx, fill_mshr.type == access_type::PREFETCH,
@@ -202,8 +207,8 @@ bool CACHE::handle_fill(const mshr_type& fill_mshr)
     assert(fill_mshr.type != access_type::WRITE);
     if (NAME == "cpu0_L1I"){
     metadata_thru =
-        impl_prefetcher_cache_fill(pkt_address, get_set_index(fill_mshr.address,true), way_idx, fill_mshr.type == access_type::PREFETCH, 0, metadata_thru);
-    impl_update_replacement_state(fill_mshr.cpu, get_set_index(fill_mshr.address,true), way_idx, fill_mshr.address, fill_mshr.ip, 0,
+        impl_prefetcher_cache_fill(pkt_address, get_set_index(fill_mshr.address,iflSet), way_idx, fill_mshr.type == access_type::PREFETCH, 0, metadata_thru);
+    impl_update_replacement_state(fill_mshr.cpu, get_set_index(fill_mshr.address,iflSet), way_idx, fill_mshr.address, fill_mshr.ip, 0,
                                   champsim::to_underlying(fill_mshr.type), false);
     } else {
       impl_prefetcher_cache_fill(pkt_address, get_set_index(fill_mshr.address,false), way_idx, fill_mshr.type == access_type::PREFETCH, 0, metadata_thru);
