@@ -94,6 +94,7 @@ bool CACHE::handle_fill(const mshr_type& fill_mshr)
   auto num_elements = std::distance(set_begin, set_end);
   auto way = std::find_if_not(set_begin, set_end, [](auto x) { return x.valid; });
 
+
   if (NAME == "cpu0_L1I"){
     
     auto [ifl_set_begin, ifl_set_end] = get_set_span(fill_mshr.address, iflSet);

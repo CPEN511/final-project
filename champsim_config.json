@@ -40,7 +40,7 @@
 
     "L1I": {
         "sets": 65,
-        "ways": 4,
+        "ways": 8,
         "rq_size": 64,
         "wq_size": 64,
         "pq_size": 32,
