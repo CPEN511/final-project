@@ -10,7 +10,7 @@ The traces can be downloaded off the 2nd Cache Replacement championship website
 2. Create a traces/ directory in the root directory of the project
    * mkdir traces/
 3. Symlink the downloaded traces from your downloaded directory
-  * ln -s /home/[user_name]/[path_to_downloaded_traces]/* traces/
+   * ln -s /home/[user_name]/[path_to_downloaded_traces]/* traces/
 4. Workspace setup!
 
 ## Running Code
