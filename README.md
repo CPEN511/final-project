@@ -11,7 +11,9 @@ The traces can be downloaded off the 2nd Cache Replacement championship website
    * mkdir traces/
 3. Symlink the downloaded traces from your downloaded directory
    * ln -s /home/[user_name]/[path_to_downloaded_traces]/* traces/
-4. Workspace setup!
+4. Create a results/ directory in the root of the project. This directory saves all the results from the benchmarks
+   * mkdir results/ 
+5. Workspace setup!
 
 ## Running Code
 ### On Linux (Ubuntu)
