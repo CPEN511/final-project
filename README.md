@@ -2,8 +2,7 @@
 Final Project repo for CPEN511
 
 ## Downloading Traces
-The traces can be downloaded off the 2nd Cache Replacement championship website
-[link](https://crc2.ece.tamu.edu/)
+The traces can be downloaded off the [2nd Cache Replacement championship website](https://crc2.ece.tamu.edu/)
 
 ## Setting up workspace
 1. Once the traces are downloaded save them in any directory of your choice.
