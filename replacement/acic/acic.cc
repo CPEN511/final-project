@@ -22,9 +22,8 @@ namespace
 std::map<CACHE*, std::vector<uint64_t>> last_used_cycles;
 }
 
-std::vector<int> hrt_table (NUM_HRT_ENTRIES, 0);
-std::vector<int> pt_table (NUM_ENTRIES_PT, 0);
-
+std::vector<int> hrt_table (NUM_HRT_ENTRIES, 1);
+std::vector<int> pt_table (NUM_ENTRIES_PT, 1);
 class CSHR
 {
     public:
@@ -77,7 +76,7 @@ bool CACHE::compare_victim(uint64_t ifl_tag, uint64_t l1i_tag,  bool iflFull, bo
     uint32_t replSetNum {64};
     uint32_t replWayNum;
 
-    std::cout << "HASH: " << hash << " HRT: " << hrt_table.at(hash) << " PT: " << pt_table.at(hrt_table.at(hash)) << " Threshold: " << threshold << std::endl;
+    std::cout << "HASH: " << hash << " HRT: " << hrt_table.at(hash) << " PT: " << pt_table.at(hrt_table.at(hash)) << " Threshold: " << threshold << " IFL_FULL " << iflFull << std::endl;
     if (pt_table.at(hrt_table.at(hash)) >= threshold && iflFull)
     {
         // place ifl in l1i so l1i is victim
@@ -105,6 +104,9 @@ bool CACHE::compare_victim(uint64_t ifl_tag, uint64_t l1i_tag,  bool iflFull, bo
         cshr_table[smallestLru_idx].valid = 1;
     }
 
+    if (iflFull && !l1iFull) replIfl = false; // if l1i is not full we need to default to l1i
+
+
     std::cout << "Placing in " << ((replIfl) ? "IFL" : "L1I") << std::endl;
 
     return replIfl;
@@ -125,6 +127,7 @@ void CACHE::update_replacement_state(uint32_t triggering_cpu, uint32_t set, uint
     {
         if (full_addr == cshr_table[i].ifl_tag)
         {
+            std::cout << "IFL tag hit" << std::endl;
             ifl_hash = cshr_table[i].ifl_tag % NUM_HRT_ENTRIES;
             hrt_table.at(ifl_hash) = (hrt_table.at(ifl_hash) << 1) | (IFL_HIT);
             pt_table.at(hrt_table.at(ifl_hash)) += 1;
@@ -134,6 +137,7 @@ void CACHE::update_replacement_state(uint32_t triggering_cpu, uint32_t set, uint
         }
         else if (full_addr == cshr_table[i].l1i_tag)
         {
+            std::cout << "L1I tag hit" << std::endl;
             l1i_hash = cshr_table[i].l1i_tag % NUM_HRT_ENTRIES;
             hrt_table.at(l1i_hash) = (hrt_table.at(l1i_hash) << 1) | (L1I_HIT);
             pt_table.at(hrt_table.at(l1i_hash)) -= 1;

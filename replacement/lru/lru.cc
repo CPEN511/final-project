@@ -29,21 +29,21 @@ uint32_t CACHE::find_victim(uint32_t triggering_cpu, uint64_t instr_id, uint32_t
   return static_cast<uint32_t>(std::distance(begin, victim)); // cast protected by prior asserts
 }
 
-//Called by IFL
-bool CACHE::compare_victim(uint64_t ifl_tag, uint64_t l1i_tag,  bool iflFull, bool l1iFull)
-{
-    bool replIfl {true}; 
+// //Called by IFL
+// bool CACHE::compare_victim(uint64_t ifl_tag, uint64_t l1i_tag,  bool iflFull, bool l1iFull)
+// {
+//     bool replIfl {true}; 
 
-    if (iflFull)
-    {
-        // place ifl in l1i so l1i is victim
-        replIfl = false;
-    }
+//     if (iflFull)
+//     {
+//         // place ifl in l1i so l1i is victim
+//         replIfl = false;
+//     }
 
-    std::cout << "Placing in " << ((replIfl) ? "IFL" : "L1I") << std::endl;
+//     std::cout << "Placing in " << ((replIfl) ? "IFL" : "L1I") << std::endl;
 
-    return replIfl;
-}
+//     return replIfl;
+// }
 
 void CACHE::update_replacement_state(uint32_t triggering_cpu, uint32_t set, uint32_t way, uint64_t full_addr, uint64_t ip, uint64_t victim_addr, uint32_t type,
                                      uint8_t hit)
