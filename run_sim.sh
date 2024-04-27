@@ -1,13 +1,23 @@
 #!/bin/bash
+echo "Running CPEN511 Final Project - Gagan and Felix!"
 config_file="champsim_config.json"
 
 if [ ! -f "$config_file" ]; then
   echo "Error: Configuration file champsim_config.json not found."
   exit 1
 fi
+echo " "
+echo "Removing csconfig..."
 rm -rf .csconfig/
+echo "Removed csconfig"
+echo " "
+echo "Running configs..."
 ./config.sh $config_file
+echo "Configs Done!"
+echo " "
+echo "Making..."
 make
+echo "Built Code!"
 trace_files=($(ls traces/))
 
 if [ ${#trace_files[@]} -eq 0 ]; then
