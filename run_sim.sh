@@ -18,7 +18,7 @@ echo " "
 echo "Making..."
 make
 echo "Built Code!"
-trace_files=($(ls traces/))
+trace_files=($(ls ../traces/))
 
 if [ ${#trace_files[@]} -eq 0 ]; then
   echo "Error: No trace files found in the traces directory."
@@ -41,5 +41,5 @@ trace_filename="${trace_files[$trace_choice]}"
 folder_name="${trace_filename%.trace.xz}"
 folder_name="${folder_name%.trace}"
 mkdir -p "results/$folder_name"
-bin/champsim --warmup-instructions 20000000 --simulation-instructions 200000000 "traces/$trace_filename" > "results/$folder_name/$folder_name.txt"
+bin/champsim --warmup-instructions 10000000 --simulation-instructions 80000000 "../traces/$trace_filename" > "results/$folder_name/$folder_name.txt"
 echo "Simulation complete!" 
