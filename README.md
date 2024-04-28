@@ -1,5 +1,5 @@
 # final-project
-Final Project repo for CPEN511
+Final Project repo for CPEN511 <br />
 Gagan Kanisetty and Felix Zhao
 
 ## Downloading Traces
