@@ -5,7 +5,7 @@ Gagan Kanisetty and Felix Zhao
 ## Downloading Traces
 The traces can be downloaded off the [2nd Cache Replacement championship website](https://crc2.ece.tamu.edu/)
 
-## Setting up workspace
+## Setting up the workspace
 1. Once the traces are downloaded save them in any directory of your choice.
 2. Create a traces/ directory in the root directory of the project
    * mkdir traces/
