@@ -1,5 +1,6 @@
 # final-project
 Final Project repo for CPEN511
+Gagan Kanisetty and Felix Zhao
 
 ## Downloading Traces
 The traces can be downloaded off the [2nd Cache Replacement championship website](https://crc2.ece.tamu.edu/)
